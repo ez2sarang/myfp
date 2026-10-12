@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 
 function chipClass(selected: boolean | undefined, className?: string): string {
   return cn(
-    "inline-flex min-h-8 items-center rounded-full border px-3 text-sm font-medium transition-colors",
+    "inline-flex min-h-10 items-center rounded-full border px-3.5 text-sm font-medium transition-colors sm:min-h-8",
     selected
-      ? "border-transparent bg-btn text-btn-ink"
-      : "border-line-strong bg-surface text-ink hover:bg-bg-alt",
+      ? "border-transparent bg-ink text-bg"
+      : "border-line bg-surface text-muted hover:border-line-strong hover:text-ink",
     className,
   );
 }

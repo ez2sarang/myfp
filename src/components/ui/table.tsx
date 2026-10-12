@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils";
 export function Table({ className, containerProps, ...props }: ComponentProps<"table"> & { containerProps?: ComponentProps<"div"> }) {
   const { className: containerClassName, ...containerRest } = containerProps ?? {};
   return (
-    <div className={cn("w-full overflow-x-auto rounded-lg border border-line", containerClassName)} {...containerRest}>
+    <div className={cn("relative w-full overflow-x-auto rounded-lg border border-line bg-surface", containerClassName)} {...containerRest}>
       <table className={cn("w-full border-collapse text-sm tabular-nums", className)} {...props} />
     </div>
   );
 }
 
 export function THead({ className, ...props }: ComponentProps<"thead">) {
-  return <thead className={cn("bg-bg-alt text-left text-muted", className)} {...props} />;
+  return <thead className={cn("border-b border-line bg-surface-2 text-left text-xs text-muted", className)} {...props} />;
 }
 
 export function TBody({ className, ...props }: ComponentProps<"tbody">) {
@@ -20,13 +20,13 @@ export function TBody({ className, ...props }: ComponentProps<"tbody">) {
 }
 
 export function TR({ className, ...props }: ComponentProps<"tr">) {
-  return <tr className={className} {...props} />;
+  return <tr className={cn("transition-colors hover:bg-surface-2", className)} {...props} />;
 }
 
 export function TH({ className, scope = "col", ...props }: ComponentProps<"th">) {
-  return <th scope={scope} className={cn("whitespace-nowrap px-3 py-2 font-semibold", className)} {...props} />;
+  return <th scope={scope} className={cn("whitespace-nowrap px-3 py-2.5 font-medium", className)} {...props} />;
 }
 
 export function TD({ className, ...props }: ComponentProps<"td">) {
-  return <td className={cn("whitespace-nowrap px-3 py-2", className)} {...props} />;
+  return <td className={cn("whitespace-nowrap px-3 py-2.5", className)} {...props} />;
 }

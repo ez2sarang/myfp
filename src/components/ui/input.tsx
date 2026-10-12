@@ -6,8 +6,8 @@ export function Input({ className, type = "text", ...props }: ComponentProps<"in
     <input
       type={type}
       className={cn(
-        "min-h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-base text-ink",
-        "placeholder:text-muted disabled:opacity-50",
+        "min-h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-base text-ink shadow-card transition-colors",
+        "placeholder:text-muted hover:border-ink/35 focus-visible:border-brand disabled:opacity-50",
         className,
       )}
       {...props}
