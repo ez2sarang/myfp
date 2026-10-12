@@ -63,6 +63,28 @@ const AD_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+// 사진 인식(OCR) 업로드 화면(/app/import/photo) 하나에만: 브라우저 안에서 ONNX 모델을 돌리려면 WebAssembly 컴파일('wasm-unsafe-eval')과
+// 같은 출처 워커가 필요하다. 'unsafe-eval' 은 열지 않고, 외부 전송을 막도록 connect-src 는 'self' 그대로 두며, https 이미지도 받지 않는다.
+// 이 화면에는 광고·분석 스크립트가 없다. 같은 키는 뒤 규칙이 앞 규칙을 덮어쓰므로 전체 규칙보다 뒤에 둔다. 다른 경로의 CSP 는 그대로다(시험으로 고정).
+const OCR_UPLOAD_PATH = "/app/import/photo";
+
+const OCR_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
+  "worker-src 'self' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://accounts.google.com https://kauth.kakao.com https://accounts.kakao.com",
+  "frame-ancestors 'none'",
+].join("; ");
+
+// OCR 모델·사전·wasm(/ocr/*)은 파일명에 SHA-256 앞자리를 넣어 내용이 바뀌면 이름이 바뀐다 → 1년 불변 캐시.
+const ocrAssetHeaders = [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }];
+
 // 서버 액션의 Origin 허용 호스트: 배포 주소(AUTH_URL)의 호스트. 프록시 뒤에서 요청 호스트가 달라도 이 호스트에서 온 액션은 받는다.
 // (Origin 이 없는 요청의 거부는 src/lib/http 의 assertSameOrigin 이 맡는다. Next 자체는 Origin 이 없으면 경고만 하고 실행한다.)
 function authHost(): string[] {
@@ -88,6 +110,8 @@ const nextConfig: NextConfig = {
       // 그룹 초대(/join/<토큰>)도 주소에 토큰이 있으므로 공유 보기와 같은 헤더(검색 제외·캐시 금지·리퍼러 없음)
       { source: "/join/:path*", headers: shareHeaders },
       ...(adsServe() ? [{ source: "/guide/:slug", headers: [{ key: "Content-Security-Policy", value: AD_CONTENT_SECURITY_POLICY }] }] : []),
+      { source: OCR_UPLOAD_PATH, headers: [{ key: "Content-Security-Policy", value: OCR_CONTENT_SECURITY_POLICY }] },
+      { source: "/ocr/:path*", headers: ocrAssetHeaders },
     ];
   },
 };

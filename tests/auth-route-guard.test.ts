@@ -32,7 +32,7 @@ test("공개 허용 목록: 정확히 일치하는 경로만 공개", () => {
 });
 
 test("보호 경로: 페이지는 보호(redirect), /api 는 보호(401)", () => {
-  for (const p of ["/app", "/app/fixed", "/app/assets", "/app/share", "/app/settings", "/app/pending", "/app/export/fixed", "/admin", "/admin/users", "/s", "/s/anything", "/legal"]) {
+  for (const p of ["/app", "/app/fixed", "/app/assets", "/app/share", "/app/settings", "/app/pending", "/app/export/fixed", "/app/import/photo", "/ocr/models/a.onnx", "/admin", "/admin/users", "/s", "/s/anything", "/legal"]) {
     assert.equal(classifyPath(p), "protected-page", p);
   }
   for (const p of ["/api/admin/users", "/api/anything", "/api", "/api/healthz", "/api/health/x"]) {

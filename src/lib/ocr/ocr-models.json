@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "models": {
+    "det": {
+      "file": "/ocr/models/det-ppocrv5-mobile.4d97c44a.onnx",
+      "bytes": 4819576,
+      "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+      "source": "RapidOCR 3.9.2 PP-OCRv5 det mobile (Apache-2.0)"
+    },
+    "rec": {
+      "file": "/ocr/models/rec-ko-ppocrv5-mobile.cd6e2ea5.onnx",
+      "bytes": 13488748,
+      "sha256": "cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b",
+      "source": "RapidOCR 3.9.2 korean_PP-OCRv5_rec_mobile (Apache-2.0)"
+    },
+    "dict": {
+      "file": "/ocr/models/rec-ko-dict.a7872c92.txt",
+      "bytes": 47450,
+      "sha256": "a7872c929cd25cf615cdfea08579cf800db1943900fe683468df4dcff6f848bb",
+      "count": 11945,
+      "source": "rec ONNX metadata 'character' (splitlines, one per line, joined by \\n, no trailing newline)"
+    }
+  },
+  "ort": {
+    "package": "onnxruntime-web",
+    "version": "1.30.0",
+    "wasm": {
+      "from": "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm",
+      "file": "/ocr/ort/ort-wasm-simd-threaded.3398c10d.wasm",
+      "bytes": 14239897,
+      "sha256": "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2"
+    }
+  }
+}

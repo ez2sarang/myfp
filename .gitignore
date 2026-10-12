@@ -24,3 +24,6 @@ next-env.d.ts
 coverage
 .DS_Store
 *.log
+
+# onnxruntime-web wasm: 빌드 때 node_modules 에서 복사(scripts/copy-ort.mjs, 해시는 src/lib/ocr/ocr-models.json)
+/public/ocr/ort/
