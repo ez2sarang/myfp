@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { addDays, daysInMonth, dueDay, seoulToday } from "../src/lib/finance/dates.ts";
 import {
-  annualAmount,
   endDateFromRemainingCount,
   isInEffect,
   monthlyEquivalent,
@@ -63,12 +62,10 @@ test("연 주기: 납부 월의 납부일, 지났으면 내년. 납부 월이 �
   assert.equal(nextBillingDate(yearly(null), "2026-10-12"), null);
 });
 
-test("월·연 환산: 연 주기는 12로 나눠 반올림, 월 주기는 ×12", () => {
+test("월 환산: 연 주기는 12로 나눠 반올림 (월 단위 정규화), 월 주기는 그대로", () => {
   assert.equal(monthlyEquivalent({ amount: 100_000, cycle: "monthly" }), 100_000);
   assert.equal(monthlyEquivalent({ amount: 1_000_000, cycle: "yearly" }), 83_333);
   assert.equal(monthlyEquivalent({ amount: 100, cycle: "yearly" }), 8);
-  assert.equal(annualAmount({ amount: 100_000, cycle: "monthly" }), 1_200_000);
-  assert.equal(annualAmount({ amount: 1_000_000, cycle: "yearly" }), 1_000_000);
 });
 
 test("남은 횟수·남은 납입 총액: 오늘부터 종료일까지(양 끝 포함), 무기한·미정은 null", () => {

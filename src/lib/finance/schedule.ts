@@ -83,11 +83,6 @@ export function monthlyEquivalent(item: Pick<ScheduleItem, "amount" | "cycle">):
   return item.cycle === "yearly" ? Math.round(item.amount / 12) : item.amount;
 }
 
-/** 연 환산 금액 */
-export function annualAmount(item: Pick<ScheduleItem, "amount" | "cycle">): number {
-  return item.cycle === "yearly" ? item.amount : item.amount * 12;
-}
-
 /** 오늘 기준으로 효력이 있는 항목인지: 활성, 보관 안 됨, 시작일이 지났고 종료일 전. */
 export function isInEffect(item: Pick<FixedExpense, "active" | "archived" | "startDate" | "endDate">, today: string): boolean {
   if (!item.active || item.archived) return false;

@@ -7,8 +7,8 @@ import type { DonutData } from "@/lib/finance/charts";
 import { formatKRWShort } from "@/lib/finance/format";
 import { EmptyChart, Swatch, formatValue } from "./chart-parts";
 
-// 도넛 + 범례 목록. 그림은 장식(aria-hidden)이고 같은 내용을 범례 목록(이름·값·비중)으로 제공한다.
-// percent 모드(금액 숨김)에서는 데이터에 금액이 없고 가운데에도 합계 금액을 쓰지 않는다.
+// 도넛 + 범례 목록. 그림은 장식(aria-hidden)이고 같은 내용을 범례 목록(이름·금액·비중)으로 제공한다.
+// 금액을 숨긴 공유 보기에는 이 차트를 쓰지 않는다.
 // filterHrefs 를 주면 범례 항목(링크, 키보드로 이동 가능)과 조각 클릭이 그 분류만 보기로 이동한다. activeKey 는 지금 고른 분류.
 export function DonutChart({
   data,
@@ -49,12 +49,12 @@ export function DonutChart({
                 <Cell key={d.key} fill={d.color} stroke="var(--surface)" opacity={activeKey && activeKey !== d.key ? 0.35 : 1} />
               ))}
             </Pie>
-            <Tooltip formatter={(value) => formatValue(data.mode, Number(value))} />
+            <Tooltip formatter={(value) => formatValue(Number(value))} />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="text-xs text-muted">{centerLabel}</span>
-          <span className="num text-lg font-bold">{data.total === null ? "100%" : formatKRWShort(data.total)}</span>
+          <span className="num text-lg font-bold">{formatKRWShort(data.total)}</span>
         </div>
       </div>
       <ul className="flex flex-col gap-2 text-sm" aria-label={`${centerLabel} 구성`}>
@@ -73,7 +73,7 @@ export function DonutChart({
             ) : (
               <span className="flex-1">{d.label}</span>
             )}
-            {data.mode === "krw" ? <span className="num font-semibold">{formatValue("krw", d.value)}</span> : null}
+            <span className="num font-semibold">{formatValue(d.value)}</span>
             <span className="num w-14 text-right text-muted">{d.percent}%</span>
           </li>
         ))}

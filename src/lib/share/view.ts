@@ -3,15 +3,13 @@
 //  - 가림은 서버에서 값을 제거하는 방식이다: 금액 숨김이면 금액 필드가 null 이고, 메모·기관명 숨김이면 그 필드가 결과에 없다.
 //    (숨긴 값을 클라이언트로 보내고 CSS 로 감추지 않는다.)
 //  - 사용자 식별 정보(이메일·이름·사용자 id)와 항목 id 는 입력으로 받지도 않고 결과에도 없다.
-//  - 차트 데이터도 같은 규칙이다: 금액을 숨기면 비중(%)만 담는다(가운데 합계·축·툴팁에 쓸 금액이 결과에 없다).
+//  - 금액을 숨기면 차트(도넛·12개월 막대·자산 구성·자산 vs 부채)와 비중(%)을 결과에 아예 넣지 않는다.
+//    비중만으로도 금액 하나를 알면 나머지를 역산할 수 있기 때문이다. 이때는 이름·분류·납부일 같은 비금액 목록만 보낸다.
 import {
   assetDonut,
   assetLiabilityCompare,
   categoryDonut,
-  compareAsPercent,
-  donutAsPercent,
   projectionStack,
-  stackAsPercent,
   type CompareData,
   type DonutData,
   type StackData,
@@ -72,19 +70,23 @@ export interface ShareView {
   expiresOn: string | null;
   masks: ShareMasks;
   summary?: {
-    charts: { categories: DonutData; projection: StackData };
+    /** 금액을 보여 줄 때만 있다 */
+    charts?: { categories: DonutData; projection: StackData };
     /** 세부 항목(정렬·필터 적용). 금액을 숨기면 행에 금액이 없고 금액순을 쓸 수 없다 */
     details: FixedDetails;
     sorts: readonly FixedSort[];
     activeCount: number;
     monthlyTotal: number | null;
-    annualTotal: number | null;
+    /** 이번 달 남은 납부액 (금액 숨김이면 null) */
+    remainingThisMonth: number | null;
+    remainingThisMonthCount: number;
     byCategory: { label: string; count: number; monthly: number | null }[];
     upcoming: { name: string; category: string; date: string; daysLeft: number; amount: number | null }[];
   };
   fixed?: ShareViewFixedRow[];
   balances?: {
-    charts: { composition: DonutData; compare: CompareData };
+    /** 금액을 보여 줄 때만 있다 */
+    charts?: { composition: DonutData; compare: CompareData };
     details: AssetDetails;
     sorts: readonly AssetSort[];
     assets: ShareViewBalanceRow[];
@@ -122,20 +124,17 @@ export function buildShareView(source: ShareSource, now: Date, params: ShareList
     const s = summarizeFixed(visibleFixed, today);
     // 금액을 숨기면 금액 순 정렬도 상대 크기를 드러내므로 이름 순으로 바꾼다.
     const slices = masks.amounts ? [...s.byCategory].sort((a, b) => a.label.localeCompare(b.label, "ko")) : s.byCategory;
-    const categories = categoryDonut(s.byCategory);
-    const projection = projectionStack(visibleFixed, today, 12);
     // 금액을 숨기면 금액순을 허용하지 않고 기본 정렬을 이름순으로 고정한다(요청에 금액순이 있어도 무시).
     const fixedSorts = masks.amounts ? MASKED_FIXED_SORTS : FIXED_SORTS;
     const fixedQuery = parseListQuery<FixedSort>(params, { sorts: fixedSorts, defaultSort: masks.amounts ? "name" : "date", categories: EXPENSE_CATEGORIES });
     view.summary = {
       details: fixedDetails(visibleFixed, today, fixedQuery, { hideAmounts: masks.amounts, hideDetails: masks.details }),
       sorts: fixedSorts,
-      charts: masks.amounts
-        ? { categories: donutAsPercent(categories), projection: stackAsPercent(projection) }
-        : { categories, projection },
+      ...(masks.amounts ? {} : { charts: { categories: categoryDonut(s.byCategory), projection: projectionStack(visibleFixed, today, 12) } }),
       activeCount: s.activeCount,
       monthlyTotal: money(s.monthlyTotal),
-      annualTotal: money(s.annualTotal),
+      remainingThisMonth: money(s.remainingThisMonth),
+      remainingThisMonthCount: s.remainingThisMonthCount,
       byCategory: slices.map((c) => ({ label: c.label, count: c.count, monthly: money(c.monthly) })),
       upcoming: s.upcoming.map((u) => ({
         name: u.name,
@@ -180,13 +179,14 @@ export function buildShareView(source: ShareSource, now: Date, params: ShareList
       if (!masks.details) row.note = b.note;
       return row;
     };
-    const composition = assetDonut(source.balances);
-    const compare = assetLiabilityCompare(totals);
     // 금액을 숨기면 목록 순서(저장소는 금액 큰 순)도 크기 순위를 드러내므로 분류 → 이름 순으로 다시 정렬한다.
     const ordered = masks.amounts
       ? [...source.balances].sort(
           (a, b) =>
-            balanceCategoryLabel(a.kind, a.category).localeCompare(balanceCategoryLabel(b.kind, b.category), "ko") || a.name.localeCompare(b.name, "ko"),
+            balanceCategoryLabel(a.kind, a.category).localeCompare(balanceCategoryLabel(b.kind, b.category), "ko") ||
+            a.name.localeCompare(b.name, "ko") ||
+            (a.asOf ?? "").localeCompare(b.asOf ?? "") ||
+            a.id.localeCompare(b.id),
         )
       : source.balances;
     const assetSorts = masks.amounts ? MASKED_ASSET_SORTS : ASSET_SORTS;
@@ -194,7 +194,7 @@ export function buildShareView(source: ShareSource, now: Date, params: ShareList
     view.balances = {
       details: assetDetails(source.balances, assetQuery, { hideAmounts: masks.amounts, hideDetails: masks.details }),
       sorts: assetSorts,
-      charts: masks.amounts ? { composition: donutAsPercent(composition), compare: compareAsPercent(compare) } : { composition, compare },
+      ...(masks.amounts ? {} : { charts: { composition: assetDonut(source.balances), compare: assetLiabilityCompare(totals) } }),
       assets: ordered.filter((b) => b.kind === "asset").map(toRow),
       liabilities: ordered.filter((b) => b.kind === "liability").map(toRow),
       assetsTotal: money(totals.assetsTotal),

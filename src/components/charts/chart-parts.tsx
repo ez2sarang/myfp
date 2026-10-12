@@ -1,13 +1,12 @@
 import { formatKRW, formatKRWShort } from "@/lib/finance/format";
-import type { ValueMode } from "@/lib/finance/charts";
 
 // 차트 공통 조각 (서버·클라이언트 양쪽에서 쓴다).
-export function formatValue(mode: ValueMode, value: number): string {
-  return mode === "krw" ? formatKRW(value) : `${value}%`;
+export function formatValue(value: number): string {
+  return formatKRW(value);
 }
 
-export function formatAxis(mode: ValueMode, value: number): string {
-  return mode === "krw" ? formatKRWShort(value) : `${value}%`;
+export function formatAxis(value: number): string {
+  return formatKRWShort(value);
 }
 
 export function EmptyChart({ text }: { text: string }) {

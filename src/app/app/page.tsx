@@ -54,7 +54,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="월 고정지출" value={formatKRW(summary.monthlyTotal)} hint={`활성 ${summary.activeCount}건 · 연 주기는 12로 나눔`} />
-        <Stat label="연 환산" value={formatKRW(summary.annualTotal)} />
+        <Stat
+          label="이번 달 남은 납부액"
+          value={formatKRW(summary.remainingThisMonth)}
+          hint={`오늘부터 이달 말까지 ${summary.remainingThisMonthCount}건`}
+        />
         <Stat
           label="다음 납부"
           value={next ? (next.daysLeft === 0 ? "오늘" : `D-${next.daysLeft}`) : "—"}

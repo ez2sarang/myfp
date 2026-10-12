@@ -122,20 +122,24 @@ test("공유 생성 입력: 섹션 최소 1개, 만료 선택 필수, 체크박�
   assert.ok(!badExpiry.ok && "expires" in badExpiry.errors);
 });
 
-test("차트도 같은 규칙: 금액 숨김이면 비중(%)만, 가운데 합계 null, 금액 숫자 없음", () => {
+test("금액 숨김이면 차트·비중을 아예 보내지 않는다 (비중으로 금액 역산 방지). 이번 달 남은 납부액도 null", () => {
   const masked = buildShareView(source({ masks: { amounts: true, details: true } }), NOW);
-  assert.equal(masked.summary?.charts.categories.mode, "percent");
-  assert.equal(masked.summary?.charts.categories.total, null);
-  assert.equal(masked.summary?.charts.projection.mode, "percent");
-  assert.equal(masked.balances?.charts.composition.mode, "percent");
-  assert.equal(masked.balances?.charts.composition.total, null);
-  assert.equal(masked.balances?.charts.compare.mode, "percent");
+  assert.equal(masked.summary?.charts, undefined);
+  assert.equal(masked.balances?.charts, undefined);
+  assert.equal(masked.summary?.remainingThisMonth, null);
+  assert.equal(masked.summary?.monthlyTotal, null);
   const json = JSON.stringify(masked);
+  for (const key of ['"charts"', '"percent"', "ratio", '"series"', '"projection"', '"composition"', '"compare"', "annual"]) {
+    assert.equal(json.includes(key), false, key);
+  }
+  assert.doesNotMatch(json, /"(total|monthlyTotal|monthly|amount|assetsTotal|liabilitiesTotal|netWorth|remainingThisMonth|monthlyPayment)":-?\d/, "금액 필드는 모두 null");
   for (const n of [SECRET_AMOUNT, SECRET_AMOUNT + 1, SECRET_AMOUNT + 2]) assert.equal(json.includes(String(n)), false, String(n));
+  // 세부 목록(금액 아닌 정보)은 남는다
+  assert.deepEqual(masked.summary?.details.rows.map((r) => r.name), ["월세"]);
   const open = buildShareView(source({}), NOW);
-  assert.equal(open.summary?.charts.categories.mode, "krw");
-  assert.equal(open.summary?.charts.categories.total, SECRET_AMOUNT);
-  assert.equal(open.balances?.charts.composition.total, SECRET_AMOUNT + 1);
+  assert.equal(open.summary?.charts?.categories.total, SECRET_AMOUNT);
+  assert.equal(open.balances?.charts?.composition.total, SECRET_AMOUNT + 1);
+  assert.equal(typeof open.summary?.remainingThisMonth, "number");
 });
 
 test("금액 숨김: 자산·부채 목록 순서가 금액과 무관하다 (분류 → 이름 순)", () => {

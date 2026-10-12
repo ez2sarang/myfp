@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseAmount, parseBalanceInput, parseFixedInput } from "../src/lib/finance/validate.ts";
-import { summarizeBalances, summarizeFixed, debtTimeline } from "../src/lib/finance/summary.ts";
+import { remainingThisMonth, summarizeBalances, summarizeFixed, debtTimeline } from "../src/lib/finance/summary.ts";
 import type { BalanceItem, FixedExpense } from "../src/lib/finance/types.ts";
 
 const TODAY = "2026-10-12";
@@ -123,7 +123,9 @@ test("요약: 효력 있는 항목만 합산, 분류별 비중은 큰 순, 순�
   const s = summarizeFixed(items, TODAY);
   assert.equal(s.activeCount, 2);
   assert.equal(s.monthlyTotal, 600_000);
-  assert.equal(s.annualTotal, 7_200_000);
+  assert.equal(s.remainingThisMonth, 500_000, "이번 달 남은 납부: 10-25 주거만 (보험은 11월)");
+  assert.equal(s.remainingThisMonthCount, 1);
+  assert.equal("annualTotal" in s, false, "연 환산은 내지 않는다");
   assert.deepEqual(s.byCategory.map((c) => c.category), ["housing", "insurance"]);
   assert.deepEqual(s.upcoming.map((u) => u.date), ["2026-10-25", "2026-11-01"]);
   const balances: BalanceItem[] = [
@@ -133,4 +135,20 @@ test("요약: 효력 있는 항목만 합산, 분류별 비중은 큰 순, 순�
   assert.deepEqual(summarizeBalances(balances), { assetsTotal: 10_000_000, liabilitiesTotal: 4_000_000, netWorth: 6_000_000 });
   const timeline = debtTimeline(items, balances, TODAY);
   assert.deepEqual(timeline.map((d) => [d.kind, d.remainingCount, d.remainingTotal]), [["liability", 4, 800_000]]);
+});
+
+test("이번 달 남은 납부액: 오늘 포함 ~ 이달 말일, 다음 달 1일 제외, 말일 규칙, 연 주기는 납부 월만, 비활성 제외", () => {
+  const items = [
+    fx({ id: "a", name: "오늘", amount: 1_000, billingDay: 12 }),
+    fx({ id: "b", name: "지남", amount: 2_000, billingDay: 5 }),
+    fx({ id: "c", name: "말일", amount: 4_000, billingDay: 31 }),
+    fx({ id: "d", name: "다음달1일", amount: 8_000, billingDay: 1 }),
+    fx({ id: "e", name: "연 이번달", amount: 16_000, cycle: "yearly", billingMonth: 10, billingDay: 20 }),
+    fx({ id: "f", name: "연 다른달", amount: 32_000, cycle: "yearly", billingMonth: 3, billingDay: 20 }),
+    fx({ id: "g", name: "꺼짐", amount: 64_000, billingDay: 20, active: false }),
+    fx({ id: "h", name: "미정", amount: 128_000, billingDay: null }),
+  ];
+  assert.deepEqual(remainingThisMonth(items, "2026-10-12"), { remainingThisMonth: 21_000, remainingThisMonthCount: 3 });
+  assert.deepEqual(remainingThisMonth(items, "2026-10-31"), { remainingThisMonth: 4_000, remainingThisMonthCount: 1 }, "말일 당일");
+  assert.deepEqual(remainingThisMonth([fx({ amount: 5, billingDay: 31 })], "2027-02-01"), { remainingThisMonth: 5, remainingThisMonthCount: 1 }, "2월 말일");
 });

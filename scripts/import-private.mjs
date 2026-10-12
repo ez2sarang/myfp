@@ -12,6 +12,7 @@
 import { readFile } from "node:fs/promises";
 import pg from "pg";
 import { tlsOptionFor } from "../src/lib/db/pool.ts";
+import { upsertBalanceSnapshot } from "../src/lib/db/queries/balance.ts";
 import { normalizeSeed } from "../src/lib/finance/import.ts";
 import { LIMITS } from "../src/lib/finance/types.ts";
 
@@ -115,6 +116,8 @@ async function main() {
     for (const b of balances) {
       tally.balance[await upsert(client, "balance_items", BALANCE_COLS, owner.id, b.externalKey, balanceValues(b.input), opts.skipExisting)] += 1;
     }
+    // 자산·부채를 넣거나 바꿨으면 같은 트랜잭션에서 이번 달 순자산 스냅샷도 갱신한다 (화면의 추이와 같은 규칙).
+    if (tally.balance.inserted + tally.balance.updated > 0) await upsertBalanceSnapshot(client, owner.id);
     await client.query("COMMIT");
     console.log(`적용 완료: 소유자 ${ownerCreated ? "새로 만듦" : "기존 행 사용"}`);
     const line = (t) => `신규 ${t.inserted}건 · 갱신 ${t.updated}건 · 건너뜀 ${t.skipped}건`;

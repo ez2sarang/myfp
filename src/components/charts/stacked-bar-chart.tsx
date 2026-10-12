@@ -15,8 +15,8 @@ export function StackedBarChart({ data, title, emptyText }: { data: StackData; t
           <BarChart data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--chart-axis)", fontSize: 12 }} interval="preserveStartEnd" />
-            <YAxis tickLine={false} axisLine={false} width={64} tick={{ fill: "var(--chart-axis)", fontSize: 12 }} tickFormatter={(v) => formatAxis(data.mode, Number(v))} />
-            <Tooltip formatter={(value) => formatValue(data.mode, Number(value))} cursor={{ fill: "var(--chart-grid)" }} />
+            <YAxis tickLine={false} axisLine={false} width={64} tick={{ fill: "var(--chart-axis)", fontSize: 12 }} tickFormatter={(v) => formatAxis(Number(v))} />
+            <Tooltip formatter={(value) => formatValue(Number(value))} cursor={{ fill: "var(--chart-grid)" }} />
             {data.series.map((s) => (
               <Bar key={s.key} dataKey={s.key} name={s.label} stackId="total" fill={s.color} isAnimationActive={false} />
             ))}
@@ -53,10 +53,10 @@ export function StackedBarChart({ data, title, emptyText }: { data: StackData; t
                   <th scope="row" className="px-2 py-1 text-left font-medium">
                     {r.month}
                   </th>
-                  <td className="px-2 py-1 text-right font-semibold">{formatValue(data.mode, r.total)}</td>
+                  <td className="px-2 py-1 text-right font-semibold">{formatValue(r.total)}</td>
                   {data.series.map((s) => (
                     <td key={s.key} className="px-2 py-1 text-right">
-                      {formatValue(data.mode, r.values[s.key] ?? 0)}
+                      {formatValue(r.values[s.key] ?? 0)}
                     </td>
                   ))}
                 </tr>

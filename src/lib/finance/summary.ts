@@ -1,6 +1,6 @@
 // 대시보드 요약 계산 (순수 모듈). 대시보드와 공유 보기가 같은 계산을 쓴다.
-import { addDays, parseYmd } from "./dates.ts";
-import { annualAmount, isInEffect, monthlyEquivalent, remainingCommittedTotal, remainingPayments, upcomingPayments } from "./schedule.ts";
+import { addDays, addMonths, diffDays, formatYmd, parseYmd } from "./dates.ts";
+import { isInEffect, monthlyEquivalent, remainingCommittedTotal, remainingPayments, upcomingPayments } from "./schedule.ts";
 import { DEBT_CATEGORIES, EXPENSE_CATEGORY_LABELS, type BalanceItem, type ExpenseCategory, type FixedExpense } from "./types.ts";
 
 export interface CategorySlice {
@@ -33,7 +33,9 @@ export interface FixedSummary {
   today: string;
   activeCount: number;
   monthlyTotal: number;
-  annualTotal: number;
+  /** 오늘(포함)부터 이번 달 말일까지 납부 예정 합계·건수 (서울 기준) */
+  remainingThisMonth: number;
+  remainingThisMonthCount: number;
   byCategory: CategorySlice[];
   upcoming: UpcomingRow[];
   upcomingTotal: number;
@@ -49,11 +51,9 @@ export function summarizeFixed(items: readonly FixedExpense[], today: string, da
   const current = items.filter((i) => isInEffect(i, today));
   const slices = new Map<ExpenseCategory, CategorySlice>();
   let monthlyTotal = 0;
-  let annualTotal = 0;
   for (const item of current) {
     const monthly = monthlyEquivalent(item);
     monthlyTotal += monthly;
-    annualTotal += annualAmount(item);
     const slice = slices.get(item.category) ?? { category: item.category, label: EXPENSE_CATEGORY_LABELS[item.category], monthly: 0, count: 0 };
     slice.monthly += monthly;
     slice.count += 1;
@@ -71,11 +71,20 @@ export function summarizeFixed(items: readonly FixedExpense[], today: string, da
     today,
     activeCount: current.length,
     monthlyTotal,
-    annualTotal,
+    ...remainingThisMonth(items, today),
     byCategory: [...slices.values()].sort((a, b) => b.monthly - a.monthly || a.label.localeCompare(b.label, "ko")),
     upcoming,
     upcomingTotal: upcoming.reduce((sum, u) => sum + u.amount, 0),
   };
+}
+
+/** 이번 달 남은 납부액: 오늘(포함)부터 이번 달 말일까지의 납부 일정 합계 (upcomingPayments 재사용, 말일 규칙 동일) */
+export function remainingThisMonth(items: readonly FixedExpense[], today: string): { remainingThisMonth: number; remainingThisMonthCount: number } {
+  const p = parseYmd(today);
+  if (!p) throw new Error("날짜 형식이 올바르지 않습니다.");
+  const next = addMonths(p.y, p.m, 1);
+  const list = upcomingPayments(items, today, diffDays(formatYmd(next.y, next.m, 1), today));
+  return { remainingThisMonth: list.reduce((sum, u) => sum + u.item.amount, 0), remainingThisMonthCount: list.length };
 }
 
 export function summarizeBalances(items: readonly BalanceItem[]): BalanceSummary {

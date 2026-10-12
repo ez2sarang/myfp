@@ -76,7 +76,9 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="mask_details" defaultChecked className="size-4" /> 메모·기관명 숨기기
           </label>
-          <p className="text-xs text-muted">숨긴 값은 서버에서 지운 뒤 보내므로 받는 사람이 볼 방법이 없습니다.</p>
+          <p className="text-xs text-muted">
+            금액 숨기기를 켜면 금액·합계·비중과 모든 차트가 빠지고, 항목 이름·분류·납부일 같은 금액 아닌 정보만 보입니다. 숨긴 값은 서버에서 지운 뒤 보냅니다.
+          </p>
           <p className="text-xs text-muted">
             메모·기관명 숨기기는 「메모」와 「기관·카드명」 칸만 가립니다. 항목 이름에 적은 기관명은 그대로 보이니 필요하면 이름을 바꿔 주세요.
           </p>

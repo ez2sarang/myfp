@@ -126,3 +126,13 @@ test("순자산 스냅샷: 자산·부채를 만들거나 바꾸면 같은 사�
   assert.deepEqual(await listSnapshots(l.db, ME), []);
   assertScoped(l.calls, "snapshots.list");
 });
+
+test("자산·부채 수정·삭제도 시작할 때 같은 사용자 행을 잠근다 (create 와 같은 줄 세우기)", async () => {
+  const u = fakeDb((call) => (call.text.startsWith("UPDATE myfp.balance_items") ? { rows: [{ id: OTHER_ITEM }] } : { rows: [], rowCount: 1 }));
+  await updateBalance(u.db, ME, OTHER_ITEM, balanceInput);
+  assert.match(u.calls[0]!.text, /^SELECT id FROM myfp\.users WHERE id = \$1 FOR UPDATE$/);
+  assert.equal(u.calls[0]!.params[0], ME);
+  const d = fakeDb(() => ({ rows: [], rowCount: 1 }));
+  await deleteBalance(d.db, ME, OTHER_ITEM);
+  assert.match(d.calls[0]!.text, /^SELECT id FROM myfp\.users WHERE id = \$1 FOR UPDATE$/);
+});

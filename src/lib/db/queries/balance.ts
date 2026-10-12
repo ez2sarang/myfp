@@ -99,6 +99,8 @@ export async function createBalance(db: Db, userId: string, input: BalanceInput)
 
 export async function updateBalance(db: Db, userId: string, id: string, input: BalanceInput): Promise<WriteResult> {
   if (!isUuid(id)) return { ok: false, reason: "not_found" };
+  // 같은 사용자의 동시 변경을 줄 세운다 (스냅샷 합계가 엇갈리지 않게, create 와 같은 잠금)
+  await db.query("SELECT id FROM myfp.users WHERE id = $1 FOR UPDATE", [userId]);
   const res = await db.query<{ id: string }>(
     `UPDATE myfp.balance_items SET kind = $3, category = $4, name = $5, amount = $6, as_of = $7, note = $8, monthly_payment = $9,
        interest_rate = $10, end_date = $11, updated_at = now()
@@ -112,6 +114,7 @@ export async function updateBalance(db: Db, userId: string, id: string, input: B
 
 export async function deleteBalance(db: Db, userId: string, id: string): Promise<boolean> {
   if (!isUuid(id)) return false;
+  await db.query("SELECT id FROM myfp.users WHERE id = $1 FOR UPDATE", [userId]);
   const res = await db.query("DELETE FROM myfp.balance_items WHERE user_id = $1 AND id = $2", [userId, id]);
   if ((res.rowCount ?? 0) === 0) return false;
   await upsertBalanceSnapshot(db, userId);

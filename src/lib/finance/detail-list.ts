@@ -1,7 +1,7 @@
 // 세부 항목 목록의 정렬·필터 (순수 모듈, 서버에서 실행). 대시보드·자산 화면·공유 보기가 같은 함수를 쓴다.
 //  - 상태는 URL 쿼리(sort·dir·cat)로 들어오며 허용 목록으로 검증한다(그 밖의 값은 기본값으로).
 //  - 날짜순은 schedule.ts 의 nextBillingDate(말일 규칙 포함)를 그대로 쓴다. 다음 납부일이 없는 항목은 방향과 상관없이 맨 뒤.
-//  - 동률은 이름 순, 그래도 같으면 입력 순서(안정 정렬).
+//  - 동률은 이름 순, 그다음 금액과 무관한 값(자산은 기준일), 마지막으로 id 순(입력 순서에 기대지 않는다).
 //  - 금액을 숨기면(hideAmounts) 금액순은 쓸 수 없고(이름순으로 바뀜) 행에 금액을 담지 않는다. 메모·기관 가림(hideDetails)이면 기관 필드가 없다.
 import { diffDays } from "./dates.ts";
 import { formatBillingDay } from "./format.ts";
@@ -104,7 +104,7 @@ export function fixedDetails(
     } else if (sort === "amount") primary = a.item.amount - b.item.amount;
     else if (sort === "category") primary = EXPENSE_CATEGORY_LABELS[a.item.category].localeCompare(EXPENSE_CATEGORY_LABELS[b.item.category], "ko");
     else primary = byName(a.item, b.item);
-    return primary !== 0 ? primary * sign : byName(a.item, b.item);
+    return primary !== 0 ? primary * sign : byName(a.item, b.item) || a.item.id.localeCompare(b.item.id);
   });
   const rows = entries.map(({ item, next }) => {
     const row: FixedDetailRow = {
@@ -168,7 +168,7 @@ export function assetDetails(items: readonly BalanceItem[], query: ListQuery<Ass
     } else if (sort === "amount") primary = a.amount - b.amount;
     else if (sort === "category") primary = label(a).localeCompare(label(b), "ko");
     else primary = byName(a, b);
-    return primary !== 0 ? primary * sign : byName(a, b);
+    return primary !== 0 ? primary * sign : byName(a, b) || (a.asOf ?? "").localeCompare(b.asOf ?? "") || a.id.localeCompare(b.id);
   });
   const rows = visible.map((b) => {
     const row: AssetDetailRow = { name: b.name, category: b.category as AssetCategory, categoryLabel: label(b), amount: opts.hideAmounts ? null : b.amount, asOf: b.asOf };

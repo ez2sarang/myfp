@@ -42,7 +42,7 @@ export function ShareViewScreen({ view, basePath }: { view: ShareView; basePath:
         <span className="ml-2 text-sm text-muted">공유된 재무 요약</span>
       </header>
       <main id="main" className="wrap flex flex-col gap-6 pb-16">
-        {hideAmounts ? <p className="text-sm text-muted">공유한 사람이 금액을 숨겼습니다.</p> : null}
+        {hideAmounts ? <p className="text-sm text-muted">공유한 사람이 금액을 숨겼습니다. 금액·합계·비중과 차트 없이 항목 정보만 보입니다.</p> : null}
 
         {view.summary ? (
           <section aria-labelledby="share-summary" className="flex flex-col gap-4">
@@ -51,41 +51,46 @@ export function ShareViewScreen({ view, basePath }: { view: ShareView; basePath:
             </h2>
             <div className="grid gap-3 sm:grid-cols-3">
               <Stat label="월 고정지출" value={money(view.summary.monthlyTotal)} hint={`활성 ${view.summary.activeCount}건`} />
-              <Stat label="연 환산" value={money(view.summary.annualTotal)} />
+              <Stat label="이번 달 남은 납부액" value={money(view.summary.remainingThisMonth)} hint={`이달 말까지 ${view.summary.remainingThisMonthCount}건`} />
               <Stat label="다음 30일 납부" value={`${view.summary.upcoming.length}건`} />
             </div>
-            <div className="grid items-stretch gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>분류별 월 고정지출{hideAmounts ? " (비중)" : ""}</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  <DonutChart
-                    data={view.summary.charts.categories}
-                    centerLabel={hideAmounts ? "비중" : "월 합계"}
-                    emptyText="활성 고정지출이 없습니다."
-                    activeKey={view.summary.details.query.cat}
-                    filterHrefs={Object.fromEntries(
-                      view.summary.charts.categories.items.map((d) => [
-                        d.key,
-                        listHref(basePath, "", { sort: view.summary!.details.query.sort, dir: view.summary!.details.query.dir, cat: d.key }, assetKeep, "#detail-list"),
-                      ]),
-                    )}
-                  />
-                </CardBody>
-              </Card>
+            {view.summary.charts ? (
+              <>
+                <div className="grid items-stretch gap-4 lg:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>분류별 월 고정지출</CardTitle>
+                    </CardHeader>
+                    <CardBody>
+                      <DonutChart
+                        data={view.summary.charts.categories}
+                        centerLabel="월 합계"
+                        emptyText="활성 고정지출이 없습니다."
+                        activeKey={view.summary.details.query.cat}
+                        filterHrefs={Object.fromEntries(
+                          view.summary.charts.categories.items.map((d) => [
+                            d.key,
+                            listHref(basePath, "", { sort: view.summary!.details.query.sort, dir: view.summary!.details.query.dir, cat: d.key }, assetKeep, "#detail-list"),
+                          ]),
+                        )}
+                      />
+                    </CardBody>
+                  </Card>
+                  <FixedDetailCard details={view.summary.details} action={`${basePath}#detail-list`} sorts={view.summary.sorts} keep={assetKeep} />
+                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>향후 12개월 예상 지출</CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    <StackedBarChart data={view.summary.charts.projection} title="향후 12개월 월별 예상 지출" emptyText="예상 지출이 없습니다." />
+                  </CardBody>
+                </Card>
+              </>
+            ) : (
+              // 금액을 숨긴 링크: 차트·비중 없이 금액 아닌 세부 목록만
               <FixedDetailCard details={view.summary.details} action={`${basePath}#detail-list`} sorts={view.summary.sorts} keep={assetKeep} />
-            </div>
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>향후 12개월 예상 지출{hideAmounts ? " (이번 달 = 100%)" : ""}</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  <StackedBarChart data={view.summary.charts.projection} title="향후 12개월 월별 예상 지출" emptyText="예상 지출이 없습니다." />
-                </CardBody>
-              </Card>
-            </div>
+            )}
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -177,36 +182,42 @@ export function ShareViewScreen({ view, basePath }: { view: ShareView; basePath:
               <Stat label="부채 합계" value={money(view.balances.liabilitiesTotal)} />
               <Stat label="순자산" value={money(view.balances.netWorth)} />
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>자산 구성{hideAmounts ? " (비중)" : ""}</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  <DonutChart
-                    data={view.balances.charts.composition}
-                    centerLabel={hideAmounts ? "비중" : "자산 합계"}
-                    emptyText="자산 항목이 없습니다."
-                    activeKey={view.balances.details.query.cat}
-                    filterHrefs={Object.fromEntries(
-                      view.balances.charts.composition.items.map((d) => [
-                        d.key,
-                        listHref(basePath, "a", { sort: view.balances!.details.query.sort, dir: view.balances!.details.query.dir, cat: d.key }, fixedKeep, "#adetail-assets"),
-                      ]),
-                    )}
-                  />
-                </CardBody>
-              </Card>
+            {view.balances.charts ? (
+              <>
+                <div className="grid items-stretch gap-4 lg:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>자산 구성</CardTitle>
+                    </CardHeader>
+                    <CardBody>
+                      <DonutChart
+                        data={view.balances.charts.composition}
+                        centerLabel="자산 합계"
+                        emptyText="자산 항목이 없습니다."
+                        activeKey={view.balances.details.query.cat}
+                        filterHrefs={Object.fromEntries(
+                          view.balances.charts.composition.items.map((d) => [
+                            d.key,
+                            listHref(basePath, "a", { sort: view.balances!.details.query.sort, dir: view.balances!.details.query.dir, cat: d.key }, fixedKeep, "#adetail-assets"),
+                          ]),
+                        )}
+                      />
+                    </CardBody>
+                  </Card>
+                  <AssetDetailCard details={view.balances.details} action={`${basePath}#adetail-assets`} prefix="a" sorts={view.balances.sorts} keep={fixedKeep} />
+                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>자산 vs 부채</CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    <CompareBarChart data={view.balances.charts.compare} emptyText="자산·부채 항목이 없습니다." />
+                  </CardBody>
+                </Card>
+              </>
+            ) : (
               <AssetDetailCard details={view.balances.details} action={`${basePath}#adetail-assets`} prefix="a" sorts={view.balances.sorts} keep={fixedKeep} />
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>자산 vs 부채{hideAmounts ? " (비중)" : ""}</CardTitle>
-              </CardHeader>
-              <CardBody>
-                <CompareBarChart data={view.balances.charts.compare} emptyText="자산·부채 항목이 없습니다." />
-              </CardBody>
-            </Card>
+            )}
             {[
               { title: "자산", rows: view.balances.assets },
               { title: "부채", rows: view.balances.liabilities },
