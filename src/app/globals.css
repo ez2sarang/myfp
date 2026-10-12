@@ -343,3 +343,133 @@ summary,
     transform: none;
   }
 }
+
+/* 가이드 글 본문. 표는 .guide-table 안에서만 가로로 스크롤해 좁은 화면(375px)에서도 문서 폭이 늘지 않는다. */
+.guide-prose {
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  min-width: 0;
+}
+
+.guide-prose > * + * {
+  margin-top: 1.1em;
+}
+
+.guide-prose h2 {
+  margin-top: 2.6em;
+  font-size: 1.45rem;
+  scroll-margin-top: calc(var(--header-h) + 16px);
+}
+
+.guide-prose h3 {
+  margin-top: 2em;
+  font-size: 1.15rem;
+  scroll-margin-top: calc(var(--header-h) + 16px);
+}
+
+.guide-prose h2 + *,
+.guide-prose h3 + * {
+  margin-top: 0.75em;
+}
+
+.guide-prose strong {
+  font-weight: 650;
+}
+
+.guide-prose a {
+  color: var(--brand);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.guide-prose a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.guide-prose ul,
+.guide-prose ol {
+  padding-left: 1.4em;
+}
+
+.guide-prose ul {
+  list-style: disc;
+}
+
+.guide-prose ol {
+  list-style: decimal;
+}
+
+.guide-prose li + li {
+  margin-top: 0.45em;
+}
+
+.guide-prose li::marker {
+  color: var(--muted);
+}
+
+.guide-prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin-block: 2.4em;
+}
+
+/* 점검표: 체크박스 모양만 그린다(입력 요소가 아니다) */
+.guide-prose .guide-checklist {
+  list-style: none;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.guide-checklist li {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.guide-checkbox {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.42em;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.guide-table {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  -webkit-overflow-scrolling: touch;
+}
+
+.guide-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.guide-table th,
+.guide-table td {
+  padding: 0.65rem 0.9rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-table th {
+  background: var(--surface-2);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.guide-table tbody tr:last-child td {
+  border-bottom: 0;
+}
