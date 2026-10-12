@@ -15,8 +15,10 @@ import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "설정" };
 
+// 이름 관문 예외(allowNoName): 이름 입력을 원하지 않는 사용자도 여기서 표시 이름을 정하거나 데이터·계정을 직접 삭제할 수 있어야 한다.
+// 이 화면은 본인 계정 정보·표시 이름·삭제만 다룬다(내보내기 링크는 이름 관문이 있는 /app/export 로 간다).
 export default async function SettingsPage() {
-  const viewer = await requireActiveUser("/app/settings");
+  const viewer = await requireActiveUser("/app/settings", { allowNoName: true });
   const displayName = await getDisplayName(db, viewer.id);
   return (
     <>

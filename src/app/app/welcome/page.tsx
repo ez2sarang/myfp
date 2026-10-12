@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOutAction } from "@/components/auth/actions";
 import { WelcomeNameForm } from "@/components/settings/welcome-name-form";
@@ -39,6 +40,13 @@ export default async function WelcomePage({ searchParams }: { searchParams: Para
           로그아웃
         </Button>
       </form>
+      <p className="text-center text-xs text-muted">
+        이름을 입력하지 않고 나가려면{" "}
+        <Link href="/app/settings#account-delete-confirm" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-ink">
+          설정
+        </Link>
+        에서 계정을 삭제할 수 있습니다.
+      </p>
     </div>
   );
 }

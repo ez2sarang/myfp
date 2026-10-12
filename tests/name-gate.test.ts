@@ -7,9 +7,15 @@ import { hasVisibleName } from "../src/lib/account/display-name.ts";
 import { WELCOME_PATH, decideAppAccess, decideShareGate, hasUsableName, welcomeNext, welcomeUrl } from "../src/lib/auth-core/name-gate.ts";
 import { userHasUsableName } from "../src/lib/db/queries/users.ts";
 import { fakeDb } from "./fake-db.ts";
-import { root } from "./source-contract-helpers.ts";
+import { root, walk } from "./source-contract-helpers.ts";
 
 const read = (f: string) => readFileSync(path.join(root, f), "utf8");
+
+/** 내보낸 함수 이름과 본문(다음 export 전까지) */
+function exportedFunctions(code: string): { name: string; body: string }[] {
+  const starts = [...code.matchAll(/export async function (\w+)/g)];
+  return starts.map((m, i) => ({ name: m[1]!, body: code.slice(m.index!, starts[i + 1]?.index ?? code.length) }));
+}
 const USER = "11111111-1111-4111-8111-111111111111";
 
 test("이름 판정: 보이는 글자·숫자가 하나라도 있어야 이름 (공백·보이지 않는 문자·채움 문자·이모지만은 빈 것)", () => {
@@ -86,35 +92,37 @@ test("돌아갈 곳(next): 같은 사이트 내부 경로만, 오픈 리다이�
   assert.equal(welcomeUrl("//evil.example"), "/app/welcome?next=%2Fapp");
 });
 
-test("서버 가드 배선: 대기 판정 뒤에 이름 관문, 이름 관문을 건너뛰는 곳은 이름 입력 화면과 이름 저장 액션뿐", () => {
+test("서버 가드 배선: 대기 판정 뒤에 이름 관문, 이름 관문을 건너뛰는 곳은 정확히 다섯 곳(이름 입력·설정 화면, 이름 저장·데이터 삭제·계정 삭제 액션)", () => {
   const session = read("src/lib/session.ts");
   const active = session.slice(session.indexOf("export async function requireActiveUser"), session.indexOf("export async function requireShareViewer"));
   const order = ['if (gate === "login")', "if (gate !== \"ok\") redirect(PENDING_PATH);", "opts.allowNoName", "redirect(welcomeUrl(callbackPath))", "return viewer as Viewer;"].map((s) => active.indexOf(s));
   assert.ok(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1]!)), JSON.stringify(order));
   assert.doesNotMatch(session, /display/i, "Viewer 에 이름 값을 싣지 않는다(불리언만)");
-  // allowNoName 사용처
-  const actions = ["account", "admin", "balance", "fixed", "household", "import", "monthly", "share"].map((f) => `src/lib/actions/${f}.ts`).filter((f) => {
-    try {
-      read(f);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-  const users: string[] = [];
-  for (const f of [...actions, "src/app/app/welcome/page.tsx", "src/app/join/[token]/page.tsx", "src/app/app/layout.tsx"]) if (/allowNoName/.test(read(f))) users.push(f);
-  assert.deepEqual(users.sort(), ["src/app/app/welcome/page.tsx", "src/lib/actions/account.ts"]);
+  // allowNoName 사용처: 정확히 다섯 곳 — 이름 입력 화면·설정 화면(페이지 2) + 이름 저장·내 데이터 전체 삭제·계정 삭제(액션 3)
+  const files = walk(path.join(root, "src")).map((f) => path.relative(root, f).split(path.sep).join("/")).filter((f) => /\.(ts|tsx)$/.test(f));
+  const users = files.filter((f) => /allowNoName: true/.test(read(f)));
+  assert.deepEqual(users.sort(), ["src/app/app/settings/page.tsx", "src/app/app/welcome/page.tsx", "src/lib/actions/account.ts"]);
+  for (const page of ["src/app/app/settings/page.tsx", "src/app/app/welcome/page.tsx"]) assert.equal((read(page).match(/allowNoName: true/g) ?? []).length, 1, page);
   const account = read("src/lib/actions/account.ts");
-  assert.equal((account.match(/allowNoName: true/g) ?? []).length, 1);
-  const save = account.slice(account.indexOf("export async function updateDisplayNameAction"), account.indexOf("export async function deleteAllDataAction"));
-  assert.match(save, /await requireActiveUser\("\/app\/settings", \{ allowNoName: true \}\)/);
-  // 다른 액션은 모두 이름 관문을 거친다(옵션 없는 requireActiveUser)
-  for (const f of actions) {
+  const exempt = exportedFunctions(account).filter((fn) => /allowNoName: true/.test(fn.body)).map((fn) => fn.name);
+  assert.deepEqual(exempt.sort(), ["deleteAccountAction", "deleteAllDataAction", "updateDisplayNameAction"]);
+  for (const fn of exportedFunctions(account).filter((x) => exempt.includes(x.name))) {
+    assert.match(fn.body, /await requireActiveUser\("\/app\/settings", \{ allowNoName: true \}\)/, fn.name);
+  }
+  // 그 밖의 모든 가드 호출은 옵션 없이(이름 관문을 거침) — CSV 내보내기 라우트 포함
+  for (const f of files.filter((x) => x !== "src/lib/session.ts")) {
     for (const call of read(f).match(/requireActiveUser\([^)]*\)/g) ?? []) {
-      if (f.endsWith("account.ts") && call.includes("allowNoName")) continue;
-      assert.doesNotMatch(call, /allowNoName/, `${f}: ${call}`);
+      if (!call.includes("allowNoName")) continue;
+      assert.ok(users.includes(f), `${f}: ${call}`);
     }
   }
+  const exportRoute = read("src/app/app/export/[kind]/route.ts");
+  assert.match(exportRoute, /requireActiveUser\(/);
+  assert.doesNotMatch(exportRoute, /allowNoName/);
+  // 설정 화면은 본인 계정·표시 이름·삭제만: 공유 링크·그룹·재무 조회를 하지 않는다(이름 없이 다른 데이터에 닿는 길 없음)
+  const settings = read("src/app/app/settings/page.tsx");
+  assert.doesNotMatch(settings, /queries\/(share|household|fixed|balance|monthly)|listShare|getMembership|visibleToViewer|listFixed|listBalances|listPlanned/);
+  assert.deepEqual([...settings.matchAll(/from "@\/lib\/db\/queries\/([a-z-]+)"/g)].map((m) => m[1]), ["users"]);
 });
 
 test("이름 입력 화면: 가드 변형으로 루프 없음, 이미 이름이 있으면 돌아갈 곳으로, 저장 뒤 정규화한 next 로 이동, 오류에 입력값 없음", () => {
@@ -123,6 +131,7 @@ test("이름 입력 화면: 가드 변형으로 루프 없음, 이미 이름이 
   assert.ok(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1]!)), JSON.stringify(order));
   assert.match(page, /updateDisplayNameAction/);
   assert.match(page, /signOutAction/);
+  assert.match(page, /이름을 입력하지 않고 나가려면[\s\S]{0,200}href="\/app\/settings#account-delete-confirm"[\s\S]{0,200}계정을 삭제할 수 있습니다/);
   const form = read("src/components/settings/welcome-name-form.tsx");
   assert.match(form, /if \(state\?\.ok\) router\.replace\(next\);/);
   assert.doesNotMatch(form, /state\.values|defaultValue/, "입력값을 다시 반사하지 않는다");
@@ -147,4 +156,13 @@ test("처리방침: 표시 이름은 공급자 이름이 없으면 처음 이용
   const privacy = read("src/app/(marketing)/privacy/page.tsx");
   assert.match(privacy, /로그인 공급자가 준 이름이 없으면 처음 이용하기 전에 입력해야 합니다/);
   assert.doesNotMatch(privacy, /표시 이름\(선택\)/);
+});
+
+test("설정의 표시 이름 칸: 「(선택)」 대신 공급자 이름이 없으면 필수라는 사실 안내(처리방침과 같은 내용), 지우기는 그대로", () => {
+  const form = read("src/components/settings/display-name-form.tsx");
+  assert.doesNotMatch(form, /\(선택\)/);
+  assert.match(form, /로그인 공급자가 이름을 주지 않았다면 필수입니다/);
+  assert.match(form, /aria-describedby="display-name-required display-name-hint"/);
+  assert.match(form, /value="clear"/);
+  assert.match(read("src/app/(marketing)/privacy/page.tsx"), /로그인 공급자가 준 이름이 없으면 처음 이용하기 전에 입력해야 합니다/);
 });

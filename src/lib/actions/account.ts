@@ -12,7 +12,7 @@ import { assertSameOrigin } from "@/lib/http/assert-same-origin";
 import { requireActiveUser } from "@/lib/session";
 import { ACCOUNT_DELETE_PHRASE, DELETE_CONFIRM_PHRASE, type ActionState } from "./state";
 
-// 이름 저장은 이름 관문의 유일한 예외(allowNoName): 이름이 없는 사용자가 이름 입력 화면(/app/welcome)에서 처음 이름을 정할 때도 이 액션을 쓴다.
+// 이름 관문 예외(allowNoName): 이름이 없는 사용자가 이름 입력 화면(/app/welcome)에서 처음 이름을 정할 때도 이 액션을 쓴다.
 export async function updateDisplayNameAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await assertSameOrigin();
   const viewer = await requireActiveUser("/app/settings", { allowNoName: true });
@@ -34,9 +34,10 @@ export async function updateDisplayNameAction(_prev: ActionState, formData: Form
   return { ok: true, message: value === null ? "표시 이름을 지웠습니다." : "표시 이름을 저장했습니다." };
 }
 
+// 이름 없이도 직접 삭제할 수 있다(allowNoName): 이름 입력을 원하지 않는 사용자가 갇히지 않게.
 export async function deleteAllDataAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await assertSameOrigin();
-  const viewer = await requireActiveUser("/app/settings");
+  const viewer = await requireActiveUser("/app/settings", { allowNoName: true });
   const confirm = formData.get("confirm");
   if (typeof confirm !== "string" || confirm.trim() !== DELETE_CONFIRM_PHRASE) {
     return { ok: false, message: `확인 문구 「${DELETE_CONFIRM_PHRASE}」를 정확히 입력해 주세요.` };
@@ -51,9 +52,10 @@ export async function deleteAllDataAction(_prev: ActionState, formData: FormData
   return { ok: true, message: "고정지출·예정지출·자산/부채·공유 링크를 모두 삭제했습니다." };
 }
 
+// 이름 없이도 탈퇴할 수 있다(allowNoName).
 export async function deleteAccountAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await assertSameOrigin();
-  const viewer = await requireActiveUser("/app/settings");
+  const viewer = await requireActiveUser("/app/settings", { allowNoName: true });
   const confirm = formData.get("confirm");
   if (typeof confirm !== "string" || confirm.trim() !== ACCOUNT_DELETE_PHRASE) {
     return { ok: false, message: `확인 문구 「${ACCOUNT_DELETE_PHRASE}」를 정확히 입력해 주세요.` };

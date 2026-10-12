@@ -14,8 +14,11 @@ export function DisplayNameForm({ action, current }: { action: (prev: ActionStat
   return (
     <form action={formAction} className="flex flex-col gap-2">
       <label htmlFor="display-name" className="text-sm font-semibold">
-        표시 이름 <span className="font-normal text-muted">(선택)</span>
+        표시 이름
       </label>
+      <p id="display-name-required" className="text-xs text-muted">
+        로그인 공급자가 이름을 주지 않았다면 필수입니다. 지우면 다음 화면으로 이동할 때 이름을 다시 묻습니다.
+      </p>
       <Input
         key={`${current ?? ""}|${state?.message ?? ""}`}
         id="display-name"
@@ -23,7 +26,7 @@ export function DisplayNameForm({ action, current }: { action: (prev: ActionStat
         defaultValue={value}
         maxLength={DISPLAY_NAME_MAX * 2}
         autoComplete="nickname"
-        aria-describedby="display-name-hint"
+        aria-describedby="display-name-required display-name-hint"
         className="max-w-sm"
       />
       <p id="display-name-hint" className="text-xs text-muted">
