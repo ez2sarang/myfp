@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PAGE_META } from "@/components/marketing/content";
 import { Hero } from "@/components/marketing/hero";
-import { Features, How, Security, StartCta } from "@/components/marketing/sections";
+import { Faq, Features, How, Security, StartCta } from "@/components/marketing/sections";
 import { SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -27,6 +27,7 @@ export default function HomePage() {
       <Features />
       <How />
       <Security />
+      <Faq />
       <StartCta />
     </>
   );

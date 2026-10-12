@@ -35,13 +35,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Params
   });
 
   return (
-    <main id="main" className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-5 py-12">
+    <main id="main" className="relative isolate flex min-h-dvh items-center justify-center overflow-hidden px-5 py-12">
+      <div aria-hidden="true" className="bg-grid pointer-events-none absolute inset-0 -z-10" />
+      <div aria-hidden="true" className="bg-glow pointer-events-none absolute inset-0 -z-10" />
+      <div className="flex w-full max-w-md flex-col gap-6 rounded-xl border border-line bg-surface/90 p-6 shadow-float backdrop-blur sm:p-8">
       <div className="flex flex-col items-center gap-3 text-center">
-        <Link href="/" aria-label={`${SITE_NAME} 소개로 돌아가기`}>
+        <Link href="/" aria-label={`${SITE_NAME} 소개로 돌아가기`} className="rounded-lg">
           <BrandMark className="size-12" />
         </Link>
-        <h1 className="text-3xl">로그인</h1>
-        <p className="text-muted">{SITE_TAGLINE}</p>
+        <h1 className="mt-2 text-[1.85rem] tracking-[-0.03em]">로그인</h1>
+        <p className="text-sm text-muted">{SITE_TAGLINE}</p>
       </div>
 
       {error ? (
@@ -56,7 +59,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Params
           <input type="hidden" name="callbackUrl" value={callbackUrl} />
           <button
             type="submit"
-            className="flex min-h-11 w-full items-center justify-center gap-3 rounded-md border border-[#747775] bg-white px-4 text-base font-semibold text-[#1f1f1f] transition-colors hover:bg-[#f2f2f2]"
+            className="flex min-h-12 w-full items-center justify-center gap-3 rounded-md border border-[#747775] bg-white px-4 text-base font-semibold text-[#1f1f1f] shadow-card transition-colors hover:bg-[#f2f2f2]"
           >
             <GoogleIcon />
             Google로 계속하기
@@ -67,7 +70,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Params
           <input type="hidden" name="callbackUrl" value={callbackUrl} />
           <button
             type="submit"
-            className="flex min-h-11 w-full items-center justify-center gap-3 rounded-md bg-[#FEE500] px-4 text-base font-semibold text-[#191919] transition-colors hover:brightness-95"
+            className="flex min-h-12 w-full items-center justify-center gap-3 rounded-md bg-[#FEE500] px-4 text-base font-semibold text-[#191919] shadow-card transition-colors hover:brightness-95"
           >
             <KakaoIcon />
             카카오로 계속하기
@@ -76,7 +79,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Params
       </div>
 
       {showCredentials ? (
-        <details className="rounded-md border border-line bg-surface px-4 py-3">
+        <details className="rounded-md border border-line bg-surface-2 px-4 py-3">
           <summary className="cursor-pointer text-sm font-semibold">관리자 로그인</summary>
           <form action={signInWithCredentials} className="mt-4 flex flex-col gap-3">
             <input type="hidden" name="callbackUrl" value={callbackUrl} />
@@ -100,7 +103,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Params
         </details>
       ) : null}
 
-      <p role="note" className="text-center text-xs text-muted">
+      <p role="note" className="border-t border-line pt-5 text-center text-xs leading-relaxed text-muted">
         처음 로그인하면 바로 가입되어 내 고정지출·자산을 관리할 수 있습니다. 계속하면{" "}
         <Link href="/terms" className="underline underline-offset-2">
           이용약관
@@ -111,6 +114,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Params
         </Link>
         에 동의하는 것으로 봅니다.
       </p>
+      </div>
     </main>
   );
 }

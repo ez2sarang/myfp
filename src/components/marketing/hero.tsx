@@ -1,52 +1,58 @@
 import Link from "next/link";
+import { ArrowRight, Check } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
-import { formatKRW } from "@/lib/finance/format";
-import { DEMO, HERO } from "./content";
+import { HERO, PROOF } from "./content";
+import { ProductPreview } from "./product-preview";
 
 export function Hero() {
   return (
-    <section className="wrap grid items-center gap-10 py-16 sm:py-24 lg:grid-cols-[1.1fr_1fr]">
-      <div className="flex flex-col gap-5">
-        <span className="text-sm font-semibold uppercase tracking-wider text-brand">{HERO.eyebrow}</span>
-        <h1 className="text-4xl sm:text-5xl">{HERO.title}</h1>
-        <p className="max-w-xl text-lg text-muted">{HERO.lead}</p>
-        <div className="flex flex-wrap gap-3">
-          <Link href={HERO.primaryCta.href} className={buttonClass("primary", "md")}>
+    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden">
+      <div aria-hidden="true" className="bg-grid pointer-events-none absolute inset-0 -z-10" />
+      <div aria-hidden="true" className="bg-glow pointer-events-none absolute inset-x-0 top-0 -z-10 h-[52rem]" />
+      <div className="wrap flex flex-col items-center pb-16 pt-14 text-center sm:pb-24 sm:pt-24">
+        <p className="rise inline-flex items-center gap-2 rounded-full border border-line bg-surface/80 px-3 py-1 text-xs font-medium text-muted shadow-card backdrop-blur">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
+          {HERO.eyebrow}
+        </p>
+        <h1
+          id="hero-title"
+          className="rise rise-2 mt-6 whitespace-pre-line text-[2.35rem] leading-[1.12] tracking-[-0.035em] sm:text-6xl lg:text-[4.25rem]"
+        >
+          {HERO.title}
+        </h1>
+        <p className="rise rise-3 mt-6 max-w-2xl text-base text-muted sm:text-lg">{HERO.lead}</p>
+        <div className="rise rise-3 mt-8 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
+          <Link href={HERO.primaryCta.href} className={buttonClass("primary", "lg")}>
             {HERO.primaryCta.label}
+            <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
-          <a href={HERO.secondaryCta.href} className={buttonClass("secondary", "md")}>
+          <a href={HERO.secondaryCta.href} className={buttonClass("secondary", "lg")}>
             {HERO.secondaryCta.label}
           </a>
         </div>
-      </div>
-      <figure className="rounded-lg border border-line bg-surface p-5 shadow-sm" aria-label="대시보드 예시 (가짜 데이터)">
-        <figcaption className="mb-3 text-xs text-muted">예시 화면 · 가짜 데이터</figcaption>
-        <p className="text-sm text-muted">이번 달 고정지출</p>
-        <p className="num text-3xl font-bold">{formatKRW(DEMO.monthlyTotal)}</p>
-        <div className="mt-4 flex h-3 overflow-hidden rounded-full" aria-hidden="true">
-          {DEMO.categories.map((c, i) => (
-            <span key={c.label} style={{ width: `${c.share}%`, background: `var(--chart-${i + 1})` }} />
+        <ul className="rise rise-4 mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-muted">
+          {HERO.trust.map((t) => (
+            <li key={t} className="inline-flex items-center gap-1.5">
+              <Check aria-hidden="true" className="size-4 text-accent-text" />
+              {t}
+            </li>
           ))}
+        </ul>
+
+        <div className="rise rise-4 relative mt-14 w-full max-w-5xl sm:mt-20">
+          <div aria-hidden="true" className="absolute -inset-x-6 -inset-y-8 -z-10 rounded-[2rem] bg-brand-soft blur-3xl" />
+          <ProductPreview />
         </div>
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-          {DEMO.categories.map((c) => (
-            <li key={c.label}>
-              {c.label} {c.share}%
-            </li>
+
+        <dl className="mt-14 grid w-full max-w-5xl grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:mt-20 lg:grid-cols-4">
+          {PROOF.map((p) => (
+            <div key={p.label} className="flex flex-col gap-1 bg-surface px-5 py-5 text-left">
+              <dt className="order-2 text-sm text-muted">{p.label}</dt>
+              <dd className="num order-1 text-2xl font-semibold tracking-tight">{p.value}</dd>
+            </div>
           ))}
-        </ul>
-        <p className="mt-5 text-sm font-semibold">다가오는 납부</p>
-        <ul className="mt-2 flex flex-col divide-y divide-line text-sm">
-          {DEMO.upcoming.map((u) => (
-            <li key={u.name} className="flex justify-between py-2">
-              <span>
-                {u.name} <span className="text-muted">· {u.day}</span>
-              </span>
-              <span className="num font-semibold">{formatKRW(u.amount)}</span>
-            </li>
-          ))}
-        </ul>
-      </figure>
+        </dl>
+      </div>
     </section>
   );
 }
