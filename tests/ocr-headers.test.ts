@@ -2,7 +2,7 @@
 // /ocr/* 자산은 불변 캐시, 그 밖의 경로는 헤더가 그대로다. 워커 진입 파일 경로가 "업로드 화면 밖 헤더 불변"의 유일한 예외다.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -112,6 +112,7 @@ test("다른 경로의 헤더는 OCR 규칙이 없을 때와 같다 (/_next/stat
     "/_next/static/media/ort-wasm-simd-threaded.38dh_vup27riw.wasm", "/_next/static/css/a.css",
     "/_next/static/immutable/chunks/a.js", "/_next/static/immutable/chunks/turbopack-worker-a.js.map", "/_next/static/immutable/media/x.wasm",
     "/_next/static/immutable/turbopack-worker-a.js", "/_next/static/immutable/chunks/sub/turbopack-worker-a.js",
+    "/_next/static/immutable/css/a.css", "/_next/static/immutable/media/turbopack-worker-a.js", "/_next/static/immutable/chunks/xturbopack-worker-a.js",
   ];
   for (const path of paths) assert.deepEqual(effective(list, path), effective(without, path), path);
   const global = effective(list, "/app").get("Content-Security-Policy") ?? "";
@@ -207,7 +208,7 @@ test("빌드 뒤 확인: 워커 CSP 예외는 모든 Turbopack 워커에 적용�
 const WORKER_JS = "turbopack-worker-abc123.js";
 const builtChunks = (dir: string) => ({ [`${dir}/${WORKER_JS}`]: "w", [`${dir}/41-page.js`]: `x("static/chunks/${WORKER_JS}")` });
 
-test("산출물 위치를 못 찾으면: 로컬은 실패(찾아본 곳·진단 출력), Vercel 은 큰 경고를 남기고 건너뜀(exit 0)", () => {
+test("산출물 위치를 못 찾으면 로컬·Vercel 모두 실패(보안 가드라 건너뛰지 않음), 찾아본 곳과 진단을 출력", () => {
   const local = checkRoot({ "README.md": "x" }, false);
   assert.equal(local.status, 1);
   const order = [".next/static/chunks", ".next/static/immutable/chunks", ".vercel/output/static/_next/static/chunks", ".vercel/output/static/_next/static/immutable/chunks", "(작업 폴더 아래 4단계 탐색)"];
@@ -215,8 +216,10 @@ test("산출물 위치를 못 찾으면: 로컬은 실패(찾아본 곳·진단 
   assert.ok(positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1]!)), JSON.stringify(positions));
   assert.match(local.output, /진단\(최상위 목록\)/);
   const vercel = checkRoot({ "README.md": "x" }, true);
-  assert.equal(vercel.status, 0);
-  assert.match(vercel.output, /경고: 검사를 건너뜁니다\(Vercel 빌드\)/);
+  assert.equal(vercel.status, 1);
+  assert.match(vercel.output, /찾아본 곳/);
+  assert.match(vercel.output, /VERCEL 환경변수: 있음/);
+  assert.doesNotMatch(vercel.output, /건너뜁니다/);
 });
 
 test("산출물을 찾으면 Vercel 에서도 같은 검사: 불변 경로(immutable/chunks)도 규칙과 맞으면 통과, 미참조면 실패", () => {
@@ -249,4 +252,20 @@ test("진단 출력은 최대 50줄", () => {
   const diagnostic = out.output.split("진단(최상위 목록):\n")[1] ?? "";
   const lines = diagnostic.split("\n").filter((l) => l.trim().length > 0);
   assert.ok(lines.length > 0 && lines.length <= 50, String(lines.length));
+});
+
+test("불변 자산 재현 어댑터는 build:vercel-like 에만: 운영 build 스크립트·vercel.json 에는 NEXT_ADAPTER_PATH 가 없다", () => {
+  const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  const vercel = readFileSync(path.join(root, "vercel.json"), "utf8");
+  for (const text of [pkg.scripts.build ?? "", vercel]) {
+    assert.doesNotMatch(text, /NEXT_ADAPTER_PATH|immutable-assets-adapter|adapterPath/);
+  }
+  assert.doesNotMatch(readFileSync(path.join(root, "next.config.ts"), "utf8"), /adapterPath|immutable-assets-adapter/);
+  const like = pkg.scripts["build:vercel-like"] ?? "";
+  assert.match(like, /NEXT_ADAPTER_PATH="\$PWD\/scripts\/dev\/immutable-assets-adapter\.mjs" next build/);
+  const order = ["node scripts/copy-ort.mjs", "next build", "node scripts/check-ocr-worker.mjs"].map((step) => like.indexOf(step));
+  assert.ok(order.every((v, i) => v >= 0 && (i === 0 || v > order[i - 1]!)), JSON.stringify(order));
+  // 운영 build 도 같은 세 단계
+  const build = pkg.scripts.build ?? "";
+  assert.equal(build, "node scripts/copy-ort.mjs && next build && node scripts/check-ocr-worker.mjs");
 });

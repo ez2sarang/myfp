@@ -82,10 +82,11 @@ const OCR_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-// OCR 워커 진입 파일(Turbopack 이 만드는 /_next/static/chunks/turbopack-worker-<해시>.js) 하나에만 WebAssembly 컴파일을 연다.
+// OCR 워커 진입 파일(Turbopack 이 만드는 turbopack-worker-<해시>.js, /_next/static/chunks/ 또는 /_next/static/immutable/chunks/ 로 서빙) 하나에만
+// WebAssembly 컴파일을 연다.
 // 브라우저는 전용 워커 안의 wasm 컴파일에 문서가 아니라 워커 스크립트 응답의 CSP 를 적용한다(격리 Chrome 154 로 확인).
 // 일반 <script> 로 받은 응답의 CSP 는 무시되므로 이 헤더는 워커로 실행될 때만 효과가 있다. 'unsafe-eval'·'unsafe-inline'·blob 은 열지 않는다.
-// 이 경로가 "업로드 화면 밖 헤더 불변" 원칙의 유일한 예외다. 진입 파일은 Turbopack 의 모든 워커가 함께 쓰므로 이 예외는 모든 워커에 적용된다
+// 이 진입 파일(아래 두 서빙 경로)이 "업로드 화면 밖 헤더 불변" 원칙의 유일한 예외다. 진입 파일은 Turbopack 의 모든 워커가 함께 쓰므로 이 예외는 모든 워커에 적용된다
 // — 빌드 뒤 scripts/check-ocr-worker.mjs 가 산출물 파일명이 이 규칙과 맞는지, 소스에서 워커를 만드는 곳이 OCR 워커 하나뿐인지 확인한다.
 // 같은 진입 파일이 빌드 환경에 따라 두 경로 중 하나로 서빙된다: 어댑터가 불변 정적 자산(supportsImmutableAssets, Next 16.3+)을 켜면
 // /_next/static/immutable/chunks/…(Vercel 빌드), 아니면 /_next/static/chunks/…(로컬 next build). 두 규칙은 같은 파일 이름·같은 CSP 다.

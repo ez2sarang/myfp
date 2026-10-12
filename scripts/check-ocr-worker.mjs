@@ -8,8 +8,9 @@
 // /_next/static/immutable/chunks/… 로 서빙된다(Vercel 빌드). 그래서 후보 폴더를 차례로 찾는다:
 //   인자 → <distDir>/static/chunks → <distDir>/static/immutable/chunks → .vercel/output/static/_next/static/{chunks,immutable/chunks}
 //   → 작업 폴더 아래 4단계까지(node_modules·src·.git 제외) turbopack-worker-*.js 가 있는 폴더.
-// 못 찾으면: 로컬은 실패(exit 1), Vercel(VERCEL 환경변수)은 큰 경고와 진단을 남기고 건너뛴다(exit 0) — 이름 변경 방어의 게이트는 푸시 전 로컬 빌드다.
-// 찾으면 두 환경 모두 같은 검사를 하고 어긋나면 실패한다.
+// 못 찾거나, 찾은 진입 파일의 서빙 경로·이름이 헤더 규칙과 맞지 않으면 어느 환경이든 실패한다(exit 1, 보안 가드라 건너뛰지 않는다).
+// 실패하면 찾아본 곳과 .next·.vercel/output 최상위 목록(최대 50줄)을 진단으로 남긴다. 실패한 Vercel 빌드는 승격되지 않아 운영은 그대로다.
+// 불변 자산 빌드는 로컬에서 `npm run build:vercel-like`(scripts/dev/immutable-assets-adapter.mjs)로 재현한다.
 // 사용: node scripts/check-ocr-worker.mjs [청크 폴더] [소스 폴더]. CHECK_OCR_ROOT 로 산출물을 찾을 작업 폴더를 바꿀 수 있다(시험용).
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -17,7 +18,6 @@ import nextConfig from "../next.config.ts";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const root = path.resolve(process.env.CHECK_OCR_ROOT ?? repoRoot);
-const onVercel = Boolean(process.env.VERCEL);
 const explicitDir = process.argv[2] ? path.resolve(process.argv[2]) : null;
 const srcDir = path.resolve(process.argv[3] ?? path.join(repoRoot, "src"));
 const ENTRY = /^turbopack-worker-.+\.js$/;
@@ -86,7 +86,7 @@ let chunksDir = candidates.find((dir) => workerFilesIn(dir).length > 0) ?? null;
 if (!chunksDir && !explicitDir) chunksDir = deepSearch(root, 0, []).find((dir) => !candidates.includes(dir)) ?? null;
 
 function diagnostics() {
-  const lines = [];
+  const lines = [`  VERCEL 환경변수: ${process.env.VERCEL ? "있음" : "없음"}, NEXT_ADAPTER_PATH: ${process.env.NEXT_ADAPTER_PATH ? "있음" : "없음"}`];
   for (const dir of [distDir, path.join(root, ".vercel/output")]) {
     let names = [];
     try {
@@ -105,10 +105,6 @@ if (!chunksDir || !servedBase(chunksDir)) {
   const tried = [...candidates, ...(explicitDir ? [] : ["(작업 폴더 아래 4단계 탐색)"])].map((c) => `  - ${c.startsWith("(") ? c : rel(c)}`).join("\n");
   const reason = explicitDir && !existsSync(explicitDir) ? `청크 폴더가 없습니다: ${rel(explicitDir)} (next build 뒤에 실행하세요)` : "워커 진입 파일이 있는 청크 폴더를 찾지 못했습니다";
   const message = `${reason}\n찾아본 곳:\n${tried}\n진단(최상위 목록):\n${diagnostics()}`;
-  if (onVercel && !explicitDir) {
-    console.warn(`\n${"!".repeat(72)}\n[check-ocr-worker] 경고: 검사를 건너뜁니다(Vercel 빌드). ${message}\n${"!".repeat(72)}\n`);
-    process.exit(0);
-  }
   if (explicitDir && existsSync(explicitDir)) chunksDir = explicitDir; // 명시한 폴더는 아래 이름 검사로 원인을 알린다
   else fail(message);
 }

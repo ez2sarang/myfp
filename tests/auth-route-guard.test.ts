@@ -14,6 +14,7 @@ test("공개 허용 목록: 정확히 일치하는 경로만 공개", () => {
     "/api/auth/callback/kakao",
     "/api/auth/session",
     "/_next/static/chunks/main.js",
+    "/_next/static/immutable/chunks/main.js",
     "/_next/image",
     "/privacy",
     "/terms",
