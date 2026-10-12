@@ -153,8 +153,7 @@ test("금액 없음·형식 위반·말일 초과는 낮음", () => {
   ]);
   assert.deepEqual(out.map((c) => [c.amount, c.reasons.filter((r) => r !== "photo" && r !== "handwriting")]), [
     [null, ["no-amount", "day-range"]],
-    // 31 다음 3 은 인접 행 쌍 기준으로 일 순서 어긋남(31 이 말일 초과여도 행이다)
-    [12000, ["format", "date-inherited", "day-order"]],
+    [12000, ["format", "date-inherited"]],
   ]);
   assert.ok(out.every((c) => c.confidence === "low"));
 });

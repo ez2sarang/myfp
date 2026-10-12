@@ -330,7 +330,7 @@ const MEMO_TOTAL = /^\s*(?:합\s*계|총\s*(?:합\s*계|합|계|액|금액)?|계
 
 /** 손글씨 메모: 첫 줄의 'N월' = 월 맥락, 행 = 맨 앞 1~31(일), 금액 = 괄호 밖 가장 오른쪽 숫자 묶음,
  *  다음 줄의 괄호 설명은 윗 행 이름에 붙인다. 대출 행의 괄호 안 'N만원'·잔액 표기는 부채(잔액) 초안을 따로 만든다.
- *  확인 신호(교정 없음): 일이 바로 위 행보다 작으면 day-order, 합계 줄 위 행 금액이 2개 이상인데 그 합이 합계와 다르면 그 행들에 total-mismatch
+ *  확인 신호(교정 없음): 일이 직전의 유효한 일 행보다 작으면 day-order, 합계 줄 위 행 금액이 2개 이상인데 그 합이 합계와 다르면 그 행들에 total-mismatch
  *  (영수증의 품목 합 ≠ 합계와 같은 구조: 합계 줄 위의 행만 더한다) */
 export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureContext): Draft[] {
   const rows = groupRows(layoutItems(lines));
@@ -374,9 +374,12 @@ export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureCon
       lines: row.map((x) => x.i),
       box: row.at(-1)?.box ?? null,
     });
-    // 인접 행 쌍 단위: 어긋난 행만 표시하고, 다음 행은 이 행과 비교한다(같은 일 반복은 같은 날 여러 건)
-    if (lastDay !== null && day < lastDay) last.extraReasons.push("day-order");
-    lastDay = day;
+    // 직전의 유효한 일(1~그 달 말일, 월 제목이 없어 말일을 모르면 31 까지) 행과 비교한다. 어긋난 행만 표시하고 다음 행은 이 행과 비교한다
+    // (같은 일 반복은 같은 날 여러 건). 말일 초과 행은 이미 표시되고, 잘못 읽힌 값일 수 있어 기준으로 쓰지 않는다(경고가 연쇄되지 않게)
+    if (monthMatch ? dayInRange : true) {
+      if (lastDay !== null && day < lastDay) last.extraReasons.push("day-order");
+      lastDay = day;
+    }
     drafts.push(last);
   }
   const summed = total ? drafts.slice(0, total.rows) : [];

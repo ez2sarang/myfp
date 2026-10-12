@@ -139,6 +139,26 @@ test("손글씨 일 순서: 바로 위 행보다 일이 작은 행만 표시(교
   ]);
 });
 
+test("손글씨 일 순서: 말일 초과 행은 기준에서 빼고 직전의 유효한 일 행과 비교(연쇄 없음), 월 제목이 없으면 31 까지 유효", () => {
+  // 11월 31 은 말일 초과: 그 행은 day-order 없이 기존 표시(범위 밖)만, 다음 행은 그 위 유효 행(5·10)과 비교
+  const back = memo("11월", "5 가상가 1,000", "31 가상나 2,000", "3 가상다 3,000");
+  assert.deepEqual(flagged(back, "day-order"), [
+    ["가상가", false],
+    ["가상나", false],
+    ["가상다", true],
+  ]);
+  assert.equal(back[1]!.dayOutOfRange, true);
+  assert.ok(memo("11월", "5 가상가 1,000", "31 가상나 2,000", "8 가상다 3,000").every((d) => !d.extraReasons.includes("day-order")), "유효 행 기준으로 정상");
+  assert.ok(memo("11월", "10 가상가 1,000", "31 가상나 2,000", "12 가상다 3,000", "13 가상라 4,000").every((d) => !d.extraReasons.includes("day-order")), "연쇄 없음");
+  // 월 제목이 없으면 말일을 모르므로 31 까지 유효(캡처일이 30일까지인 달이어도): 10 은 5 가 아니라 31 과 비교된다
+  const noMonth = parseHandwriting([line("5 가상가 1,000", 40, 30, 400, 70), line("31 가상나 2,000", 40, 90, 400, 130), line("10 가상다 3,000", 40, 150, 400, 190)], { ...PHOTO, today: "2026-11-20" });
+  assert.deepEqual(flagged(noMonth, "day-order"), [
+    ["가상가", false],
+    ["가상나", false],
+    ["가상다", true],
+  ]);
+});
+
 test("손글씨 합계: 합계 줄 위 행 금액 합 ≠ 합계면 그 행 모두에 표시, 같거나 합계 줄이 없거나 행 금액이 1개면 검사 안 함, 합계 줄은 항목이 아니다", () => {
   assert.ok(parseHandwriting(MEMO_CAPTURE, PHOTO).every((d) => !d.extraReasons.includes("total-mismatch")), "일치(대출 잔액은 합에 넣지 않음)");
   const wrong = memo("10월", "5 가상헬스 50,000", "12 가상대출 이자 120,000 (3000만원)", "20 가상가 7,000", "합계 999,000");
