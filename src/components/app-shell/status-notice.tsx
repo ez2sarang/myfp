@@ -17,7 +17,7 @@ const COPY = {
 export function StatusNotice({ kind }: { kind: keyof typeof COPY }) {
   const copy = COPY[kind];
   return (
-    <div className="mx-auto w-full max-w-2xl py-8">
+    <div className="mx-auto w-full max-w-2xl py-8 sm:py-16">
       <EmptyState
         title={copy.title}
         description={copy.description}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Landmark, PiggyBank, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { BalanceForm } from "@/components/balance/balance-form";
 import { CompareBarChart } from "@/components/charts/compare-bar-chart";
@@ -28,12 +29,13 @@ function BalanceTable({ title, items }: { title: string; items: BalanceItem[] })
   const liability = title === "부채";
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between gap-2">
         <CardTitle>{title}</CardTitle>
+        <span className="num text-sm text-muted">{items.length}건</span>
       </CardHeader>
       <CardBody>
         {items.length === 0 ? (
-          <p className="text-sm text-muted">등록한 {title}이 없습니다.</p>
+          <p className="py-6 text-center text-sm text-muted">등록한 {title}이 없습니다.</p>
         ) : (
           <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": `${title} 목록` }}>
             <THead>
@@ -57,16 +59,16 @@ function BalanceTable({ title, items }: { title: string; items: BalanceItem[] })
                     {b.note ? <span className="block max-w-56 truncate text-xs text-muted">{b.note}</span> : null}
                   </TD>
                   <TD>{balanceCategoryLabel(b.kind, b.category)}</TD>
-                  <TD className="text-right font-semibold">{formatKRW(b.amount)}</TD>
-                  <TD>{formatDate(b.asOf)}</TD>
-                  {liability ? <TD className="text-right">{formatKRW(b.monthlyPayment)}</TD> : null}
+                  <TD className="num text-right font-semibold">{formatKRW(b.amount)}</TD>
+                  <TD className="num">{formatDate(b.asOf)}</TD>
+                  {liability ? <TD className="num text-right">{formatKRW(b.monthlyPayment)}</TD> : null}
                   {liability ? (
-                    <TD>
+                    <TD className="num">
                       {b.interestRate === null ? "—" : `${b.interestRate}%`} · {formatDate(b.endDate)}
                     </TD>
                   ) : null}
                   <TD>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Link href={`/app/assets/${b.id}`} className={buttonClass("secondary", "sm")} aria-label={`${b.name} 수정`}>
                         수정
                       </Link>
@@ -103,24 +105,42 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
   );
   return (
     <>
-      <PageHeader title="자산·부채" description={`잔액 기준으로 기록합니다. 최대 ${LIMITS.balanceItems}건.`} />
-      {items.length === 0 ? <EmptyState className="mb-4" title="아직 등록한 자산·부채가 없습니다" description="예금·투자·대출 잔액을 아래에서 추가하면 순자산과 차트가 계산됩니다." /> : null}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="순자산 (자산 − 부채)" value={formatKRW(totals.netWorth)} tone={totals.netWorth < 0 ? "negative" : "default"} className="sm:col-span-1" />
-        <Stat label="자산 합계" value={formatKRW(totals.assetsTotal)} />
-        <Stat label="부채 잔액 합계" value={formatKRW(totals.liabilitiesTotal)} />
-      </div>
-      <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-2">
-        <Card>
+      <PageHeader
+        eyebrow="잔액 기준"
+        title="자산·부채"
+        description={`잔액 기준으로 기록합니다. 최대 ${LIMITS.balanceItems}건.`}
+        actions={
+          <a href="#add-balance" className={buttonClass("primary", "sm", "min-h-11 sm:min-h-9")}>
+            새 자산·부채
+          </a>
+        }
+      />
+      {items.length === 0 ? (
+        <EmptyState className="mb-6" title="아직 등록한 자산·부채가 없습니다" description="예금·투자·대출 잔액을 아래에서 추가하면 순자산과 차트가 계산됩니다." />
+      ) : null}
+      <section aria-label="자산·부채 요약" className="grid gap-3 sm:grid-cols-3">
+        <Stat
+          accent
+          icon={<Wallet />}
+          label="순자산 (자산 − 부채)"
+          value={formatKRW(totals.netWorth)}
+          tone={totals.netWorth < 0 ? "negative" : "default"}
+          className="sm:col-span-1"
+        />
+        <Stat icon={<PiggyBank />} label="자산 합계" value={formatKRW(totals.assetsTotal)} />
+        <Stat icon={<Landmark />} label="부채 잔액 합계" value={formatKRW(totals.liabilitiesTotal)} />
+      </section>
+      <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-2">
+        <Card className="shadow-raised lg:min-h-[32rem]">
           <CardHeader>
             <CardTitle>자산 구성</CardTitle>
             <p className="text-sm text-muted">분류를 누르면 오른쪽 목록이 그 분류만 보여 줍니다.</p>
           </CardHeader>
-          <CardBody>
+          <CardBody className="pt-6">
             <DonutChart data={composition} centerLabel="자산 합계" emptyText="등록한 자산이 없습니다." filterHrefs={filterHrefs} activeKey={details.query.cat} />
           </CardBody>
         </Card>
-        <AssetDetailCard details={details} action="/app/assets#detail-assets" sorts={ASSET_SORTS} />
+        <AssetDetailCard details={details} action="/app/assets#detail-assets" sorts={ASSET_SORTS} fill />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
@@ -140,18 +160,22 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
             {trend.length >= 2 ? (
               <TrendLineChart points={trend} />
             ) : (
-              <p className="text-sm text-muted">{trend.length === 1 ? "이번 달 기록이 저장됐습니다. 다음 달부터 추이가 표시됩니다." : "자산·부채를 저장하면 이번 달부터 기록이 쌓이고, 다음 달부터 추이가 표시됩니다."}</p>
+              <p className="py-6 text-center text-sm text-muted">{trend.length === 1 ? "이번 달 기록이 저장됐습니다. 다음 달부터 추이가 표시됩니다." : "자산·부채를 저장하면 이번 달부터 기록이 쌓이고, 다음 달부터 추이가 표시됩니다."}</p>
             )}
           </CardBody>
         </Card>
       </div>
-      <div className="mt-6 grid gap-4">
+      <section aria-labelledby="balance-lists" className="mt-10 flex flex-col gap-4">
+        <h2 id="balance-lists" className="text-xl">
+          등록한 항목
+        </h2>
         <BalanceTable title="자산" items={items.filter((b) => b.kind === "asset")} />
         <BalanceTable title="부채" items={items.filter((b) => b.kind === "liability")} />
-      </div>
-      <Card className="mt-8">
+      </section>
+      <Card id="add-balance" className="mt-10 scroll-mt-28">
         <CardHeader>
           <CardTitle>새 자산·부채</CardTitle>
+          <p className="text-sm text-muted">잔액과 기준일을 넣으면 순자산과 이번 달 기록이 바로 갱신됩니다.</p>
         </CardHeader>
         <CardBody>
           <BalanceForm action={createBalanceAction} item={null} submitLabel="추가" />

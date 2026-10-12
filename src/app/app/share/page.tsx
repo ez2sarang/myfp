@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Link2 } from "lucide-react";
 import { InlineAction } from "@/components/forms/inline-action";
 import { ShareCreateForm } from "@/components/share/share-create-form";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +31,15 @@ export default async function SharePage() {
   return (
     <>
       <PageHeader
+        eyebrow={`사용 중 ${activeCount} / ${LIMITS.activeShareLinks}`}
         title="공유 링크"
         description={`읽기 전용 링크입니다. 공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입(로그인)만 하면 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다. 사용 중인 링크는 최대 ${LIMITS.activeShareLinks}개 (지금 ${activeCount}개).`}
       />
-      <Card>
-        <CardHeader>
+      <Card className="shadow-raised">
+        <CardHeader className="flex-row items-center gap-3">
+          <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand">
+            <Link2 className="size-4" />
+          </span>
           <CardTitle>새 링크 만들기</CardTitle>
         </CardHeader>
         <CardBody>
@@ -42,10 +47,15 @@ export default async function SharePage() {
         </CardBody>
       </Card>
 
-      <h2 className="mb-1 mt-8 text-xl">내 링크</h2>
-      <p className="mb-3 text-xs text-muted">열람 수는 로그인한 사람(나 자신 제외)이 연 횟수입니다. 누가 열었는지는 기록하지 않습니다.</p>
+      <div className="mb-4 mt-10 flex flex-wrap items-end justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl">내 링크</h2>
+          <p className="text-xs text-muted">열람 수는 로그인한 사람(나 자신 제외)이 연 횟수입니다. 누가 열었는지는 기록하지 않습니다.</p>
+        </div>
+        <span className="num text-sm text-muted">{links.length}개</span>
+      </div>
       {links.length === 0 ? (
-        <EmptyState title="만든 링크가 없습니다" />
+        <EmptyState title="만든 링크가 없습니다" description="위에서 첫 공유 링크를 만들면 여기에 상태와 열람 수가 표시됩니다." />
       ) : (
         <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "공유 링크 목록" }}>
           <THead>
@@ -75,11 +85,11 @@ export default async function SharePage() {
                   <TD className="whitespace-normal text-xs">
                     {[l.masks.amounts ? "금액" : null, l.masks.details ? "메모·기관" : null].filter(Boolean).join(", ") || "없음"}
                   </TD>
-                  <TD className="text-xs">
+                  <TD className="num text-xs">
                     {formatDate(seoulToday(l.createdAt))} · {l.expiresAt ? formatDate(seoulToday(l.expiresAt)) : "무기한"}
                   </TD>
-                  <TD className="text-right">{l.viewCount}</TD>
-                  <TD className="text-xs">{l.lastViewedAt ? formatDate(seoulToday(l.lastViewedAt)) : "—"}</TD>
+                  <TD className="num text-right font-semibold">{l.viewCount}</TD>
+                  <TD className="num text-xs">{l.lastViewedAt ? formatDate(seoulToday(l.lastViewedAt)) : "—"}</TD>
                   <TD>
                     {state === "active" ? (
                       <InlineAction

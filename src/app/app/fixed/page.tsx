@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Archive, ArrowLeft, Plus } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { FixedForm } from "@/components/fixed/fixed-form";
 import { InlineAction } from "@/components/forms/inline-action";
@@ -54,37 +55,50 @@ export default async function FixedPage({ searchParams }: { searchParams: Params
   return (
     <>
       <PageHeader
+        eyebrow={showArchived ? "보관함" : "매달 · 매년"}
         title="고정지출"
         description={`매달·매년 나가는 돈을 관리합니다. 최대 ${LIMITS.fixedExpenses}건.`}
         actions={
-          <a href="#add-fixed" className={buttonClass("primary", "sm")}>
+          <a href="#add-fixed" className={buttonClass("primary", "sm", "min-h-11 sm:min-h-9")}>
+            <Plus aria-hidden="true" className="size-4" />
             새 항목 추가
           </a>
         }
       />
 
-      <nav aria-label="분류 필터" className="mb-3 flex flex-wrap gap-2">
-        <ChipLink href={query({ sort, archived: showArchived ? "1" : "" })} selected={!category}>
-          전체
-        </ChipLink>
-        {EXPENSE_CATEGORIES.map((c) => (
-          <ChipLink key={c} href={query({ category: c, sort, archived: showArchived ? "1" : "" })} selected={category === c}>
-            {EXPENSE_CATEGORY_LABELS[c]}
-          </ChipLink>
-        ))}
-      </nav>
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-muted">정렬</span>
-        {Object.entries(SORTS).map(([key, label]) => (
-          <ChipLink key={key} href={query({ category, sort: key, archived: showArchived ? "1" : "" })} selected={sort === key}>
-            {label}
-          </ChipLink>
-        ))}
-        <span className="ml-auto">
-          <Link href={query({ category, sort, archived: showArchived ? "" : "1" })} className="font-semibold text-brand underline underline-offset-4">
+      <div className="mb-5 flex flex-col gap-3 rounded-lg border border-line bg-surface p-3 shadow-card sm:p-4">
+        <div className="flex items-start gap-3">
+          <span aria-hidden="true" className="w-8 shrink-0 pt-3 text-xs font-semibold text-muted sm:pt-1.5">
+            분류
+          </span>
+          <nav aria-label="분류 필터" className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+            <ChipLink href={query({ sort, archived: showArchived ? "1" : "" })} selected={!category} className="min-h-11 sm:min-h-8">
+              전체
+            </ChipLink>
+            {EXPENSE_CATEGORIES.map((c) => (
+              <ChipLink key={c} href={query({ category: c, sort, archived: showArchived ? "1" : "" })} selected={category === c} className="min-h-11 sm:min-h-8">
+                {EXPENSE_CATEGORY_LABELS[c]}
+              </ChipLink>
+            ))}
+          </nav>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-3 text-sm">
+          <span className="w-8 shrink-0 text-xs font-semibold text-muted">정렬</span>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(SORTS).map(([key, label]) => (
+              <ChipLink key={key} href={query({ category, sort: key, archived: showArchived ? "1" : "" })} selected={sort === key} className="min-h-11 sm:min-h-8">
+                {label}
+              </ChipLink>
+            ))}
+          </div>
+          <Link
+            href={query({ category, sort, archived: showArchived ? "" : "1" })}
+            className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 font-semibold text-brand hover:bg-brand-soft sm:min-h-8"
+          >
+            {showArchived ? <ArrowLeft aria-hidden="true" className="size-4" /> : <Archive aria-hidden="true" className="size-4" />}
             {showArchived ? "사용 중인 항목 보기" : `보관함 보기 (${archivedCount})`}
           </Link>
-        </span>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -121,22 +135,22 @@ export default async function FixedPage({ searchParams }: { searchParams: Params
                   <TD>
                     <Badge>{EXPENSE_CATEGORY_LABELS[f.category]}</Badge>
                   </TD>
-                  <TD className="text-right">
+                  <TD className="num text-right">
                     <span className="font-semibold">{formatKRW(f.amount)}</span>
                     {f.cycle === "yearly" ? <span className="block text-xs text-muted">월 {formatKRW(monthlyEquivalent(f))}</span> : null}
                   </TD>
-                  <TD>{formatBillingDay(f.billingDay, f.cycle, f.billingMonth)}</TD>
+                  <TD className="num">{formatBillingDay(f.billingDay, f.cycle, f.billingMonth)}</TD>
                   <TD>
                     {f.paymentMethod ? PAYMENT_METHOD_LABELS[f.paymentMethod] : "—"}
                     {f.institution ? <span className="block text-xs text-muted">{f.institution}</span> : null}
                   </TD>
-                  <TD>
+                  <TD className="num">
                     {f.endDate ? formatDate(f.endDate) : "무기한"}
                     {left !== null ? <span className="block text-xs text-muted">{left}회 남음</span> : null}
                   </TD>
                   <TD className="text-xs text-muted">{EXPENSE_SOURCE_LABELS[f.source]}</TD>
                   <TD>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Link href={`/app/fixed/${f.id}`} className={buttonClass("secondary", "sm")} aria-label={`${f.name} 수정`}>
                         수정
                       </Link>
@@ -165,7 +179,7 @@ export default async function FixedPage({ searchParams }: { searchParams: Params
         </Table>
       )}
 
-      <Card id="add-fixed" className="mt-8 scroll-mt-24">
+      <Card id="add-fixed" className="mt-10 scroll-mt-28">
         <CardHeader>
           <CardTitle>새 고정지출</CardTitle>
           <p className="text-sm text-muted">남은 횟수를 넣으면 종료일이 자동으로 계산됩니다.</p>

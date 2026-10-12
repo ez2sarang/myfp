@@ -14,6 +14,7 @@ export const metadata: Metadata = { title: "사용자 관리" };
 
 const STATUS_LABEL = { active: "활성", pending: "가입 대기", blocked: "차단" } as const;
 const STATUS_TONE = { active: "positive", pending: "warn", blocked: "negative" } as const;
+const STATUS_DOT = { active: "bg-positive", pending: "bg-warn-ink", blocked: "bg-negative" } as const;
 
 export default async function AdminUsersPage() {
   const admin = await requireAdmin();
@@ -21,14 +22,18 @@ export default async function AdminUsersPage() {
   return (
     <>
       <PageHeader
+        eyebrow="관리자"
         title="사용자 관리"
         description="가입 대기(가입 상한 초과·승인제 모드에서 생김)를 처리하거나 계정을 차단·해제합니다. 자기 자신과 마지막 관리자는 차단할 수 없습니다."
       />
-      <dl className="mb-4 grid grid-cols-3 gap-3 text-center sm:max-w-md">
+      <dl className="mb-6 grid grid-cols-3 gap-3 sm:max-w-xl">
         {(["active", "pending", "blocked"] as const).map((s) => (
-          <div key={s} className="rounded-lg border border-line bg-surface px-3 py-2">
-            <dt className="text-xs text-muted">{STATUS_LABEL[s]}</dt>
-            <dd className="num text-xl font-bold">{counts[s]}</dd>
+          <div key={s} className="flex flex-col gap-1 rounded-lg border border-line bg-surface px-4 py-3 shadow-card">
+            <dt className="flex items-center gap-1.5 text-xs font-medium text-muted">
+              <span aria-hidden="true" className={`size-2 rounded-full ${STATUS_DOT[s]}`} />
+              {STATUS_LABEL[s]}
+            </dt>
+            <dd className="num text-2xl font-semibold tracking-[-0.03em]">{counts[s]}</dd>
           </div>
         ))}
       </dl>
@@ -59,14 +64,14 @@ export default async function AdminUsersPage() {
                   <Badge tone={STATUS_TONE[u.status]}>{STATUS_LABEL[u.status]}</Badge>
                 </TD>
                 <TD>{u.role === "admin" ? "관리자" : "회원"}</TD>
-                <TD className="text-xs">
+                <TD className="num text-xs">
                   {formatDate(seoulToday(u.createdAt))} · {u.lastLoginAt ? formatDate(seoulToday(u.lastLoginAt)) : "—"}
                 </TD>
                 <TD>
                   {u.id === admin.id ? (
                     <span className="text-xs text-muted">나</span>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       {u.status !== "active" ? (
                         <InlineAction action={setUserStatusAction} hidden={{ userId: u.id, status: "active" }} label={u.status === "pending" ? "승인" : "차단 해제"} variant="primary" ariaLabel={`${label} 승인`} />
                       ) : null}

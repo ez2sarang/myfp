@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Download, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { signOutAction } from "@/components/auth/actions";
 import { DeleteAllForm } from "@/components/shared/delete-all-form";
@@ -15,24 +16,24 @@ export default async function SettingsPage() {
   const viewer = await requireActiveUser("/app/settings");
   return (
     <>
-      <PageHeader title="설정" />
-      <div className="grid gap-4">
+      <PageHeader eyebrow="계정 · 데이터" title="설정" />
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>계정</CardTitle>
           </CardHeader>
           <CardBody>
-            <dl className="grid grid-cols-[6rem_1fr] gap-y-2 text-sm">
+            <dl className="grid grid-cols-[5.5rem_1fr] text-sm [&>dd]:border-b [&>dd]:border-line [&>dd]:py-2.5 [&>dt]:border-b [&>dt]:border-line [&>dt]:py-2.5">
               <dt className="text-muted">이름</dt>
-              <dd>{viewer.name ?? "—"}</dd>
+              <dd className="font-medium">{viewer.name ?? "—"}</dd>
               <dt className="text-muted">이메일</dt>
-              <dd>{viewer.email ?? "— (카카오 로그인은 이메일을 받지 않습니다)"}</dd>
+              <dd className="break-all">{viewer.email ?? "— (카카오 로그인은 이메일을 받지 않습니다)"}</dd>
               <dt className="text-muted">권한</dt>
               <dd>
                 <Badge tone={viewer.role === "admin" ? "brand" : "neutral"}>{viewer.role === "admin" ? "관리자" : "회원"}</Badge>
               </dd>
             </dl>
-            <form action={signOutAction} className="mt-4">
+            <form action={signOutAction} className="mt-5">
               <Button type="submit" variant="secondary">
                 로그아웃
               </Button>
@@ -47,14 +48,26 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardBody className="flex flex-wrap gap-2">
             <a href="/app/export/fixed" className={buttonClass("secondary", "md")} download>
+              <Download aria-hidden="true" className="size-4" />
               고정지출 CSV
             </a>
             <a href="/app/export/balances" className={buttonClass("secondary", "md")} download>
+              <Download aria-hidden="true" className="size-4" />
               자산·부채 CSV
             </a>
           </CardBody>
         </Card>
+      </div>
 
+      <section aria-labelledby="danger-zone" className="mt-10 flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <TriangleAlert aria-hidden="true" className="size-4 text-danger" />
+          <h2 id="danger-zone" className="text-lg text-danger">
+            위험 구역
+          </h2>
+          <span className="text-sm text-muted">· 되돌릴 수 없는 작업</span>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-danger/40">
           <CardHeader>
             <CardTitle>내 데이터 전체 삭제</CardTitle>
@@ -77,7 +90,8 @@ export default async function SettingsPage() {
             <DeleteAllForm action={deleteAccountAction} phrase={ACCOUNT_DELETE_PHRASE} inputId="account-delete-confirm" buttonLabel="계정 삭제" />
           </CardBody>
         </Card>
-      </div>
+        </div>
+      </section>
     </>
   );
 }
