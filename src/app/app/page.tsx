@@ -1,22 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { CategoryChart } from "@/components/charts/category-chart";
+import { DonutChart } from "@/components/charts/donut-chart";
+import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
 import { Stat } from "@/components/shared/stat";
 import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { db } from "@/lib/db/pool";
 import { listBalances } from "@/lib/db/queries/balance";
 import { listFixed } from "@/lib/db/queries/fixed";
+import { categoryDonut, projectionStack } from "@/lib/finance/charts";
 import { seoulToday } from "@/lib/finance/dates";
 import { formatDate, formatKRW } from "@/lib/finance/format";
+import { upcomingPayments } from "@/lib/finance/schedule";
 import { debtTimeline, summarizeBalances, summarizeFixed, windowLastDay } from "@/lib/finance/summary";
 import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "대시보드" };
 
+// 첫 화면: 큰 숫자 요약 → 차트(분류 도넛, 12개월 누적 막대) → 30일 일정 → 상환 타임라인.
+// 데이터 가공은 모두 서버에서 하고 차트 컴포넌트에는 숫자만 넘긴다.
 export default async function DashboardPage() {
   const viewer = await requireActiveUser("/app");
   const [fixed, balances] = await Promise.all([listFixed(db, viewer.id), listBalances(db, viewer.id)]);
@@ -24,31 +28,30 @@ export default async function DashboardPage() {
   const summary = summarizeFixed(fixed, today);
   const totals = summarizeBalances(balances);
   const debts = debtTimeline(fixed, balances, today);
-
-  if (fixed.length === 0 && balances.length === 0) {
-    return (
-      <>
-        <PageHeader title="대시보드" />
-        <EmptyState
-          title="아직 등록한 항목이 없습니다"
-          description="매달 나가는 고정지출부터 추가해 보세요. 합계·일정·상환 타임라인이 자동으로 계산됩니다."
-          action={
-            <Link href="/app/fixed" className={buttonClass("primary")}>
-              고정지출 추가하기
-            </Link>
-          }
-        />
-      </>
-    );
-  }
+  const next = upcomingPayments(fixed, today, 366)[0];
+  const donut = categoryDonut(summary.byCategory);
+  const projection = projectionStack(fixed, today, 12);
+  const empty = fixed.length === 0 && balances.length === 0;
 
   return (
     <>
       <PageHeader title="대시보드" description={`${formatDate(today)} 기준 (서울 시간)`} />
+      {empty ? (
+        <div role="note" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-info-bg px-4 py-3 text-sm text-info-ink">
+          <span>아직 등록한 항목이 없습니다. 고정지출을 추가하면 합계·차트·일정이 자동으로 계산됩니다.</span>
+          <Link href="/app/fixed#add-fixed" className={buttonClass("primary", "sm")}>
+            고정지출 추가하기
+          </Link>
+        </div>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="월 고정지출" value={formatKRW(summary.monthlyTotal)} hint={`활성 ${summary.activeCount}건 · 연 주기는 12로 나눔`} />
         <Stat label="연 환산" value={formatKRW(summary.annualTotal)} />
-        <Stat label="다음 30일 납부" value={formatKRW(summary.upcomingTotal)} hint={`${summary.upcoming.length}건 · ${formatDate(windowLastDay(today))}까지`} />
+        <Stat
+          label="다음 납부"
+          value={next ? (next.daysLeft === 0 ? "오늘" : `D-${next.daysLeft}`) : "—"}
+          hint={next ? `${formatDate(next.date)} · ${next.item.name} · ${formatKRW(next.item.amount)}` : "납부일이 있는 활성 항목이 없습니다"}
+        />
         <Stat
           label="순자산"
           value={formatKRW(totals.netWorth)}
@@ -57,22 +60,33 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <Card>
           <CardHeader>
             <CardTitle>분류별 월 고정지출</CardTitle>
           </CardHeader>
           <CardBody>
-            {summary.byCategory.length === 0 ? (
-              <p className="text-sm text-muted">활성 항목이 없습니다.</p>
-            ) : (
-              <CategoryChart data={summary.byCategory.map((c) => ({ label: c.label, monthly: c.monthly }))} />
-            )}
+            <DonutChart data={donut} centerLabel="월 합계" emptyText="활성 고정지출이 없습니다." />
           </CardBody>
         </Card>
         <Card>
           <CardHeader>
+            <CardTitle>향후 12개월 예상 지출</CardTitle>
+            <p className="text-sm text-muted">이번 달부터. 종료일이 지난 항목은 그 달부터 빠집니다.</p>
+          </CardHeader>
+          <CardBody>
+            <StackedBarChart data={projection} title="향후 12개월 월별 예상 지출" emptyText="예상 지출이 없습니다." />
+          </CardBody>
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
             <CardTitle>다음 30일 납부 일정</CardTitle>
+            <p className="text-sm text-muted">
+              {summary.upcoming.length}건 · {formatKRW(summary.upcomingTotal)} · {formatDate(windowLastDay(today))}까지
+            </p>
           </CardHeader>
           <CardBody>
             {summary.upcoming.length === 0 ? (
@@ -81,10 +95,11 @@ export default async function DashboardPage() {
               <ol className="flex flex-col divide-y divide-line text-sm">
                 {summary.upcoming.map((u, i) => (
                   <li key={`${u.id}-${u.date}-${i}`} className="flex items-center justify-between gap-3 py-2">
-                    <span className="flex flex-col">
-                      <span className="font-medium">{u.name}</span>
-                      <span className="num text-xs text-muted">
-                        {formatDate(u.date)} · {u.daysLeft === 0 ? "오늘" : `${u.daysLeft}일 뒤`}
+                    <span className="flex items-center gap-3">
+                      <span className="num w-12 shrink-0 rounded-md bg-bg-alt py-1 text-center text-xs font-bold">{u.daysLeft === 0 ? "오늘" : `D-${u.daysLeft}`}</span>
+                      <span className="flex flex-col">
+                        <span className="font-medium">{u.name}</span>
+                        <span className="num text-xs text-muted">{formatDate(u.date)}</span>
                       </span>
                     </span>
                     <span className="num font-semibold">{formatKRW(u.amount)}</span>
@@ -94,9 +109,7 @@ export default async function DashboardPage() {
             )}
           </CardBody>
         </Card>
-      </div>
-
-      <Card className="mt-6">
+        <Card>
         <CardHeader>
           <CardTitle>부채 상환 타임라인</CardTitle>
           <p className="text-sm text-muted">대출 상환·이자 분류의 고정지출과 종료일이 있는 부채. 남은 총액은 남은 횟수 × 금액의 추정치입니다.</p>
@@ -130,6 +143,7 @@ export default async function DashboardPage() {
           )}
         </CardBody>
       </Card>
+      </div>
     </>
   );
 }

@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import { CompareBarChart } from "@/components/charts/compare-bar-chart";
+import { DonutChart } from "@/components/charts/donut-chart";
+import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
 import { Stat } from "@/components/shared/stat";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -42,6 +45,24 @@ export function ShareViewScreen({ view }: { view: ShareView }) {
               <Stat label="월 고정지출" value={money(view.summary.monthlyTotal)} hint={`활성 ${view.summary.activeCount}건`} />
               <Stat label="연 환산" value={money(view.summary.annualTotal)} />
               <Stat label="다음 30일 납부" value={`${view.summary.upcoming.length}건`} />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+              <Card>
+                <CardHeader>
+                  <CardTitle>분류별 월 고정지출{hideAmounts ? " (비중)" : ""}</CardTitle>
+                </CardHeader>
+                <CardBody>
+                  <DonutChart data={view.summary.charts.categories} centerLabel={hideAmounts ? "비중" : "월 합계"} emptyText="활성 고정지출이 없습니다." />
+                </CardBody>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>향후 12개월 예상 지출{hideAmounts ? " (이번 달 = 100%)" : ""}</CardTitle>
+                </CardHeader>
+                <CardBody>
+                  <StackedBarChart data={view.summary.charts.projection} title="향후 12개월 월별 예상 지출" emptyText="예상 지출이 없습니다." />
+                </CardBody>
+              </Card>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
@@ -133,6 +154,24 @@ export function ShareViewScreen({ view }: { view: ShareView }) {
               <Stat label="자산 합계" value={money(view.balances.assetsTotal)} />
               <Stat label="부채 합계" value={money(view.balances.liabilitiesTotal)} />
               <Stat label="순자산" value={money(view.balances.netWorth)} />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>자산 구성{hideAmounts ? " (비중)" : ""}</CardTitle>
+                </CardHeader>
+                <CardBody>
+                  <DonutChart data={view.balances.charts.composition} centerLabel={hideAmounts ? "비중" : "자산 합계"} emptyText="자산 항목이 없습니다." />
+                </CardBody>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>자산 vs 부채{hideAmounts ? " (비중)" : ""}</CardTitle>
+                </CardHeader>
+                <CardBody>
+                  <CompareBarChart data={view.balances.charts.compare} emptyText="자산·부채 항목이 없습니다." />
+                </CardBody>
+              </Card>
             </div>
             {[
               { title: "자산", rows: view.balances.assets },

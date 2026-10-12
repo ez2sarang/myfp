@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { BalanceForm } from "@/components/balance/balance-form";
+import { CompareBarChart } from "@/components/charts/compare-bar-chart";
+import { DonutChart } from "@/components/charts/donut-chart";
+import { TrendLineChart } from "@/components/charts/trend-line-chart";
 import { InlineAction } from "@/components/forms/inline-action";
 import { Stat } from "@/components/shared/stat";
 import { buttonClass } from "@/components/ui/button";
@@ -10,7 +13,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { createBalanceAction, deleteBalanceAction } from "@/lib/actions/balance";
 import { db } from "@/lib/db/pool";
-import { listBalances } from "@/lib/db/queries/balance";
+import { listBalances, listSnapshots } from "@/lib/db/queries/balance";
+import { assetDonut, assetLiabilityCompare, netWorthTrend } from "@/lib/finance/charts";
 import { formatDate, formatKRW } from "@/lib/finance/format";
 import { summarizeBalances } from "@/lib/finance/summary";
 import { LIMITS, balanceCategoryLabel, type BalanceItem } from "@/lib/finance/types";
@@ -86,17 +90,49 @@ function BalanceTable({ title, items }: { title: string; items: BalanceItem[] })
 
 export default async function AssetsPage() {
   const viewer = await requireActiveUser("/app/assets");
-  const items = await listBalances(db, viewer.id);
+  const [items, snapshots] = await Promise.all([listBalances(db, viewer.id), listSnapshots(db, viewer.id)]);
   const totals = summarizeBalances(items);
+  const trend = netWorthTrend(snapshots);
   return (
     <>
       <PageHeader title="자산·부채" description={`잔액 기준으로 기록합니다. 최대 ${LIMITS.balanceItems}건.`} />
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+      {items.length === 0 ? <EmptyState className="mb-4" title="아직 등록한 자산·부채가 없습니다" description="예금·투자·대출 잔액을 아래에서 추가하면 순자산과 차트가 계산됩니다." /> : null}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat label="순자산 (자산 − 부채)" value={formatKRW(totals.netWorth)} tone={totals.netWorth < 0 ? "negative" : "default"} className="sm:col-span-1" />
         <Stat label="자산 합계" value={formatKRW(totals.assetsTotal)} />
-        <Stat label="부채 합계" value={formatKRW(totals.liabilitiesTotal)} />
-        <Stat label="순자산" value={formatKRW(totals.netWorth)} tone={totals.netWorth < 0 ? "negative" : "default"} />
+        <Stat label="부채 잔액 합계" value={formatKRW(totals.liabilitiesTotal)} />
       </div>
-      {items.length === 0 ? <EmptyState className="mb-6" title="아직 등록한 자산·부채가 없습니다" description="예금·투자·대출 잔액을 추가하면 순자산이 계산됩니다." /> : null}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>자산 구성</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <DonutChart data={assetDonut(items)} centerLabel="자산 합계" emptyText="등록한 자산이 없습니다." />
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>자산 vs 부채</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <CompareBarChart data={assetLiabilityCompare(totals)} emptyText="등록한 자산·부채가 없습니다." />
+          </CardBody>
+        </Card>
+      </div>
+      <Card className="mb-6 mt-4">
+        <CardHeader>
+          <CardTitle>순자산 추이</CardTitle>
+          <p className="text-sm text-muted">자산·부채를 추가·수정할 때마다 그 달의 합계가 기록됩니다.</p>
+        </CardHeader>
+        <CardBody>
+          {trend.length >= 2 ? (
+            <TrendLineChart points={trend} />
+          ) : (
+            <p className="text-sm text-muted">{trend.length === 1 ? "이번 달 기록이 저장됐습니다. 다음 달부터 추이가 표시됩니다." : "자산·부채를 저장하면 이번 달부터 기록이 쌓이고, 다음 달부터 추이가 표시됩니다."}</p>
+          )}
+        </CardBody>
+      </Card>
       <div className="grid gap-4">
         <BalanceTable title="자산" items={items.filter((b) => b.kind === "asset")} />
         <BalanceTable title="부채" items={items.filter((b) => b.kind === "liability")} />

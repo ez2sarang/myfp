@@ -3,6 +3,19 @@
 //  - 가림은 서버에서 값을 제거하는 방식이다: 금액 숨김이면 금액 필드가 null 이고, 메모·기관명 숨김이면 그 필드가 결과에 없다.
 //    (숨긴 값을 클라이언트로 보내고 CSS 로 감추지 않는다.)
 //  - 사용자 식별 정보(이메일·이름·사용자 id)와 항목 id 는 입력으로 받지도 않고 결과에도 없다.
+//  - 차트 데이터도 같은 규칙이다: 금액을 숨기면 비중(%)만 담는다(가운데 합계·축·툴팁에 쓸 금액이 결과에 없다).
+import {
+  assetDonut,
+  assetLiabilityCompare,
+  categoryDonut,
+  compareAsPercent,
+  donutAsPercent,
+  projectionStack,
+  stackAsPercent,
+  type CompareData,
+  type DonutData,
+  type StackData,
+} from "../finance/charts.ts";
 import { seoulToday } from "../finance/dates.ts";
 import { formatBillingDay } from "../finance/format.ts";
 import { monthlyEquivalent } from "../finance/schedule.ts";
@@ -45,6 +58,7 @@ export interface ShareView {
   expiresOn: string | null;
   masks: ShareMasks;
   summary?: {
+    charts: { categories: DonutData; projection: StackData };
     activeCount: number;
     monthlyTotal: number | null;
     annualTotal: number | null;
@@ -53,6 +67,7 @@ export interface ShareView {
   };
   fixed?: ShareViewFixedRow[];
   balances?: {
+    charts: { composition: DonutData; compare: CompareData };
     assets: ShareViewBalanceRow[];
     liabilities: ShareViewBalanceRow[];
     assetsTotal: number | null;
@@ -85,7 +100,12 @@ export function buildShareView(source: ShareSource, now: Date): ShareView {
     const s = summarizeFixed(visibleFixed, today);
     // 금액을 숨기면 금액 순 정렬도 상대 크기를 드러내므로 이름 순으로 바꾼다.
     const slices = masks.amounts ? [...s.byCategory].sort((a, b) => a.label.localeCompare(b.label, "ko")) : s.byCategory;
+    const categories = categoryDonut(s.byCategory);
+    const projection = projectionStack(visibleFixed, today, 12);
     view.summary = {
+      charts: masks.amounts
+        ? { categories: donutAsPercent(categories), projection: stackAsPercent(projection) }
+        : { categories, projection },
       activeCount: s.activeCount,
       monthlyTotal: money(s.monthlyTotal),
       annualTotal: money(s.annualTotal),
@@ -133,7 +153,10 @@ export function buildShareView(source: ShareSource, now: Date): ShareView {
       if (!masks.details) row.note = b.note;
       return row;
     };
+    const composition = assetDonut(source.balances);
+    const compare = assetLiabilityCompare(totals);
     view.balances = {
+      charts: masks.amounts ? { composition: donutAsPercent(composition), compare: compareAsPercent(compare) } : { composition, compare },
       assets: source.balances.filter((b) => b.kind === "asset").map(toRow),
       liabilities: source.balances.filter((b) => b.kind === "liability").map(toRow),
       assetsTotal: money(totals.assetsTotal),

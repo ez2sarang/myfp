@@ -49,6 +49,14 @@
   --chart-5: #ef4444;
   --chart-6: #06b6d4;
   --chart-7: #64748b;
+  --chart-8: #ec4899;
+  --chart-9: #84cc16;
+  --chart-10: #14b8a6;
+  --chart-11: #a8a29e;
+  --chart-asset: #0e9f6e;
+  --chart-liability: #e5484d;
+  --chart-grid: rgba(15, 23, 42, 0.08);
+  --chart-axis: #64748b;
 
   /* 타이포 */
   --sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -93,6 +101,13 @@
     --warn-bg: #3b2f0b;
     --warn-ink: #fcd34d;
     --band: #050814;
+    --chart-1: #7c9bff;
+    --chart-7: #94a3b8;
+    --chart-11: #d6d3d1;
+    --chart-asset: #34d399;
+    --chart-liability: #f87171;
+    --chart-grid: rgba(232, 236, 244, 0.1);
+    --chart-axis: #9aa6b8;
   }
 }
 
