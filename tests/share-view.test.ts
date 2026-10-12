@@ -1,0 +1,123 @@
+// 공유 보기 직렬화 계약: 선택한 섹션만, 가린 값은 결과(JSON)에 아예 없다, 사용자 식별 정보·항목 id 없음.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { normalizeMasks, normalizeScopes, parseShareInput } from "../src/lib/share/options.ts";
+import { buildShareView, type ShareSource } from "../src/lib/share/view.ts";
+import type { BalanceItem, FixedExpense } from "../src/lib/finance/types.ts";
+
+const NOW = new Date("2026-10-12T03:00:00Z");
+// 직렬화 결과에서 찾기 쉬운 가짜 값
+const SECRET_AMOUNT = 7_777_123;
+const SECRET_NOTE = "NOTE-SECRET-ZX9";
+const SECRET_INST = "INST-SECRET-QW7";
+const ITEM_ID = "11111111-2222-4333-8444-555555555555";
+
+const fixed: FixedExpense[] = [
+  {
+    id: ITEM_ID,
+    name: "월세",
+    category: "housing",
+    amount: SECRET_AMOUNT,
+    cycle: "monthly",
+    billingDay: 25,
+    billingMonth: null,
+    paymentMethod: "bank_autopay",
+    institution: SECRET_INST,
+    startDate: null,
+    endDate: null,
+    active: true,
+    note: SECRET_NOTE,
+    source: "manual",
+    archived: false,
+  },
+  {
+    id: "99999999-2222-4333-8444-555555555555",
+    name: "보관된 항목",
+    category: "other",
+    amount: 1,
+    cycle: "monthly",
+    billingDay: 1,
+    billingMonth: null,
+    paymentMethod: null,
+    institution: null,
+    startDate: null,
+    endDate: null,
+    active: true,
+    note: null,
+    source: "manual",
+    archived: true,
+  },
+];
+const balances: BalanceItem[] = [
+  { id: ITEM_ID, kind: "asset", category: "deposit", name: "예금", amount: SECRET_AMOUNT + 1, asOf: "2026-10-01", note: SECRET_NOTE, monthlyPayment: null, interestRate: null, endDate: null },
+  { id: ITEM_ID, kind: "liability", category: "loan", name: "대출", amount: SECRET_AMOUNT + 2, asOf: null, note: null, monthlyPayment: SECRET_AMOUNT + 3, interestRate: 4.2, endDate: "2031-03-15" },
+];
+
+function source(over: Partial<ShareSource>): ShareSource {
+  return { scopes: ["summary", "fixed", "balances"], masks: { amounts: false, details: false }, createdAt: NOW, expiresAt: null, fixed, balances, ...over };
+}
+
+test("금액 숨김: 직렬화한 결과 어디에도 금액(합계 포함)이 없다", () => {
+  const json = JSON.stringify(buildShareView(source({ masks: { amounts: true, details: false } }), NOW));
+  for (const n of [SECRET_AMOUNT, SECRET_AMOUNT + 1, SECRET_AMOUNT + 2, SECRET_AMOUNT + 3, SECRET_AMOUNT * 12, 1 - (SECRET_AMOUNT + 2)]) {
+    assert.equal(json.includes(String(n)), false, `금액 ${n} 이 결과에 있음`);
+  }
+  assert.match(json, /"amount":null/);
+});
+
+test("메모·기관명 숨김: 값뿐 아니라 필드 자체가 없다", () => {
+  const view = buildShareView(source({ masks: { amounts: false, details: true } }), NOW);
+  const json = JSON.stringify(view);
+  assert.equal(json.includes(SECRET_NOTE), false);
+  assert.equal(json.includes(SECRET_INST), false);
+  assert.equal(json.includes('"note"'), false);
+  assert.equal(json.includes('"institution"'), false);
+  assert.ok(json.includes(String(SECRET_AMOUNT)), "금액은 숨기지 않았으므로 보인다");
+});
+
+test("가리지 않으면 메모·기관명이 보인다 (가림이 실제로 차이를 만드는지 확인)", () => {
+  const json = JSON.stringify(buildShareView(source({}), NOW));
+  assert.ok(json.includes(SECRET_NOTE) && json.includes(SECRET_INST));
+});
+
+test("항목 id·사용자 식별 정보가 결과에 없다", () => {
+  const json = JSON.stringify(buildShareView(source({}), NOW));
+  assert.equal(json.includes(ITEM_ID), false);
+  for (const key of ['"id"', '"userId"', '"user_id"', '"email"', '"ownerId"']) assert.equal(json.includes(key), false, key);
+});
+
+test("선택한 섹션만 있다. 보관한 항목은 나오지 않는다", () => {
+  const onlyFixed = buildShareView(source({ scopes: ["fixed"] }), NOW);
+  assert.equal(onlyFixed.summary, undefined);
+  assert.equal(onlyFixed.balances, undefined);
+  assert.deepEqual(onlyFixed.fixed?.map((f) => f.name), ["월세"]);
+  const onlySummary = buildShareView(source({ scopes: ["summary"] }), NOW);
+  assert.equal(onlySummary.fixed, undefined);
+  assert.equal(onlySummary.balances, undefined, "요약만 공유하면 자산·부채(순자산 포함)는 없다");
+  assert.equal(JSON.stringify(onlySummary).includes("보관된 항목"), false);
+});
+
+test("금액을 숨기면 분류 순서도 금액이 아니라 이름 순", () => {
+  const extra = [...fixed, { ...fixed[0]!, id: "x", name: "보험", category: "insurance" as const, amount: SECRET_AMOUNT * 2 }];
+  const view = buildShareView(source({ fixed: extra, masks: { amounts: true, details: true } }), NOW);
+  assert.deepEqual(view.summary?.byCategory.map((c) => c.label), ["보험", "주거"].sort((a, b) => a.localeCompare(b, "ko")));
+});
+
+test("DB 의 scopes·masks 는 다시 정규화: 모르는 값은 버리고, 가림은 기본 켬", () => {
+  assert.deepEqual(normalizeScopes(["fixed", "admin", 1]), ["fixed"]);
+  assert.deepEqual(normalizeScopes("fixed"), []);
+  assert.deepEqual(normalizeMasks(null), { amounts: true, details: true });
+  assert.deepEqual(normalizeMasks({ amounts: false }), { amounts: false, details: true });
+});
+
+test("공유 생성 입력: 섹션 최소 1개, 만료 선택 필수, 체크박스 값으로 가림 결정", () => {
+  const ok = parseShareInput({ label: " 가족 ", scope_fixed: "on", mask_details: "on", expires: "30" }, NOW);
+  assert.ok(ok.ok);
+  assert.deepEqual(ok.value.scopes, ["fixed"]);
+  assert.deepEqual(ok.value.masks, { amounts: false, details: true });
+  assert.equal(ok.value.label, "가족");
+  const none = parseShareInput({ expires: "30" }, NOW);
+  assert.ok(!none.ok && "scopes" in none.errors);
+  const badExpiry = parseShareInput({ scope_fixed: "on", expires: "365" }, NOW);
+  assert.ok(!badExpiry.ok && "expires" in badExpiry.errors);
+});
