@@ -56,6 +56,7 @@ function BalanceTable({ title, items }: { title: string; items: BalanceItem[] })
                 <TR key={b.id}>
                   <TD className="min-w-32 whitespace-normal font-medium">
                     {b.name}
+                    {b.private ? <span className="ml-1.5 text-xs font-normal text-muted">(나만 보기)</span> : null}
                     {b.note ? <span className="block max-w-40 truncate text-xs text-muted lg:max-w-56">{b.note}</span> : null}
                   </TD>
                   <TD>{balanceCategoryLabel(b.kind, b.category)}</TD>

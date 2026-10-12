@@ -3,28 +3,17 @@
 // 공유 링크 서버 액션. assertSameOrigin → requireActiveUser 순서로 시작한다.
 // 토큰 원문은 생성 응답으로 한 번만 돌려주고 어디에도 저장·기록하지 않는다(DB 에는 해시만).
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { withTransaction } from "@/lib/db/pool";
 import { createShareLink, revokeShareLink } from "@/lib/db/queries/share";
 import { LIMITS } from "@/lib/finance/types";
 import { assertSameOrigin } from "@/lib/http/assert-same-origin";
+import { siteBase } from "@/lib/http/site-base";
 import { requireActiveUser } from "@/lib/session";
 import { parseShareInput } from "@/lib/share/options";
 import { generateShareToken, shareUrl } from "@/lib/share/token";
 import { formFields, type ActionState } from "./state";
 
 const FAILED: ActionState = { ok: false, message: "처리 중 오류가 발생했습니다. 잠시 뒤 다시 시도해 주세요." };
-
-/** 공유 주소의 기준: AUTH_URL(배포 주소). 없으면 같은 사이트 요청의 Origin(assertSameOrigin 을 통과한 값). */
-async function siteBase(): Promise<string> {
-  try {
-    const url = new URL((process.env.AUTH_URL ?? "").trim());
-    if (url.protocol === "https:" || url.protocol === "http:") return url.origin;
-  } catch {
-    // 아래로
-  }
-  return (await headers()).get("origin") ?? "";
-}
 
 export async function createShareAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await assertSameOrigin();

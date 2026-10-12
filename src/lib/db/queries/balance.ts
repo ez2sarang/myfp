@@ -3,10 +3,18 @@ import { seoulToday } from "../../finance/dates.ts";
 import type { BalanceInput } from "../../finance/validate.ts";
 import { LIMITS, type BalanceCategory, type BalanceItem, type BalanceKind } from "../../finance/types.ts";
 import { isUuid, type Db } from "../types.ts";
+import { hasColumn } from "./columns.ts";
+
+/** 나만 보기 저장 (0008 의 private 열이 있을 때만; 없으면 건너뛴다) */
+async function savePrivate(db: Db, userId: string, id: string, value: boolean | undefined): Promise<void> {
+  if (value === undefined || !(await hasColumn(db, "balance_items", "private"))) return;
+  await db.query("UPDATE myfp.balance_items SET private = $3 WHERE user_id = $1 AND id = $2", [userId, id, value]);
+}
 import type { WriteResult } from "./fixed.ts";
 
 export const BALANCE_COLUMNS = `id::text AS id, kind, category, name, amount::text AS amount, to_char(as_of, 'YYYY-MM-DD') AS as_of, note,
-  monthly_payment::text AS monthly_payment, interest_rate::text AS interest_rate, to_char(end_date, 'YYYY-MM-DD') AS end_date`;
+  monthly_payment::text AS monthly_payment, interest_rate::text AS interest_rate, to_char(end_date, 'YYYY-MM-DD') AS end_date,
+  COALESCE((to_jsonb(balance_items) ->> 'private')::boolean, false) AS private`;
 
 export interface BalanceRow {
   id: string;
@@ -19,6 +27,7 @@ export interface BalanceRow {
   monthly_payment: string | null;
   interest_rate: string | null;
   end_date: string | null;
+  private?: boolean;
 }
 
 export function balanceFromRow(r: BalanceRow): BalanceItem {
@@ -33,6 +42,7 @@ export function balanceFromRow(r: BalanceRow): BalanceItem {
     monthlyPayment: r.monthly_payment === null ? null : Number(r.monthly_payment),
     interestRate: r.interest_rate === null ? null : Number(r.interest_rate),
     endDate: r.end_date,
+    private: r.private === true,
   };
 }
 
@@ -93,8 +103,10 @@ export async function createBalance(db: Db, userId: string, input: BalanceInput)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id::text AS id`,
     [userId, ...valuesOf(input)],
   );
+  const id = (res.rows[0] as { id: string }).id;
+  await savePrivate(db, userId, id, input.private);
   await upsertBalanceSnapshot(db, userId);
-  return { ok: true, id: (res.rows[0] as { id: string }).id };
+  return { ok: true, id };
 }
 
 export async function updateBalance(db: Db, userId: string, id: string, input: BalanceInput): Promise<WriteResult> {
@@ -108,6 +120,7 @@ export async function updateBalance(db: Db, userId: string, id: string, input: B
     [userId, id, ...valuesOf(input)],
   );
   if (!res.rows[0]) return { ok: false, reason: "not_found" };
+  await savePrivate(db, userId, id, input.private);
   await upsertBalanceSnapshot(db, userId);
   return { ok: true, id };
 }

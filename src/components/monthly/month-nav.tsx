@@ -12,10 +12,25 @@ const TIMING: Record<MonthTiming, { label: string; tone: "brand" | "neutral" | "
 };
 
 // 기준 달 이동: ◀ ▶ 링크와 달 고르기(GET 폼, 자바스크립트 없이 동작). 고를 수 있는 달은 서버가 정한 범위뿐이다.
-export function MonthNav({ month, timing, months, current }: { month: string; timing: MonthTiming; months: readonly string[]; current: string }) {
+export function MonthNav({
+  month,
+  timing,
+  months,
+  current,
+  basePath = "/app",
+  keep = {},
+}: {
+  month: string;
+  timing: MonthTiming;
+  months: readonly string[];
+  current: string;
+  basePath?: string;
+  /** 같은 화면의 다른 상태 (달을 바꿔도 유지) */
+  keep?: Record<string, string>;
+}) {
   const first = months[0] ?? month;
   const last = months[months.length - 1] ?? month;
-  const href = (m: string) => `/app?month=${m}`;
+  const href = (m: string) => `${basePath}?${new URLSearchParams({ ...keep, month: m }).toString()}`;
   return (
     <nav aria-label="기준 달" className="mb-5 flex flex-wrap items-center gap-2">
       {month > first ? (
@@ -27,7 +42,10 @@ export function MonthNav({ month, timing, months, current }: { month: string; ti
           <ChevronLeft className="size-4" />
         </span>
       )}
-      <form method="get" action="/app" className="flex items-center gap-2">
+      <form method="get" action={basePath} className="flex items-center gap-2">
+        {Object.entries(keep).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
         <label htmlFor="month-select" className="sr-only">
           기준 달 고르기
         </label>
@@ -54,7 +72,7 @@ export function MonthNav({ month, timing, months, current }: { month: string; ti
       )}
       <Badge tone={TIMING[timing].tone}>{TIMING[timing].label}</Badge>
       {month !== current ? (
-        <Link href="/app" className="text-sm font-medium text-brand underline underline-offset-4">
+        <Link href={Object.keys(keep).length > 0 ? `${basePath}?${new URLSearchParams(keep).toString()}` : basePath} className="text-sm font-medium text-brand underline underline-offset-4">
           이번 달로
         </Link>
       ) : null}

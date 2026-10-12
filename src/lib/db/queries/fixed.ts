@@ -3,10 +3,17 @@
 import type { FixedInput } from "../../finance/validate.ts";
 import { LIMITS, type Cycle, type ExpenseCategory, type ExpenseSource, type FixedExpense, type PaymentMethod } from "../../finance/types.ts";
 import { isUuid, type Db } from "../types.ts";
+import { hasColumn } from "./columns.ts";
+
+/** 나만 보기 저장 (0008 의 private 열이 있을 때만; 없으면 건너뛴다) */
+async function savePrivate(db: Db, userId: string, id: string, value: boolean | undefined): Promise<void> {
+  if (value === undefined || !(await hasColumn(db, "fixed_expenses", "private"))) return;
+  await db.query("UPDATE myfp.fixed_expenses SET private = $3 WHERE user_id = $1 AND id = $2", [userId, id, value]);
+}
 
 export const FIXED_COLUMNS = `id::text AS id, name, category, amount::text AS amount, cycle, billing_day, billing_month, payment_method, institution,
   to_char(start_date, 'YYYY-MM-DD') AS start_date, to_char(end_date, 'YYYY-MM-DD') AS end_date, active, note, source,
-  (archived_at IS NOT NULL) AS archived`;
+  (archived_at IS NOT NULL) AS archived, COALESCE((to_jsonb(fixed_expenses) ->> 'private')::boolean, false) AS private`;
 
 export interface FixedRow {
   id: string;
@@ -24,6 +31,7 @@ export interface FixedRow {
   note: string | null;
   source: ExpenseSource;
   archived: boolean;
+  private?: boolean;
 }
 
 export function fixedFromRow(r: FixedRow): FixedExpense {
@@ -43,6 +51,7 @@ export function fixedFromRow(r: FixedRow): FixedExpense {
     note: r.note,
     source: r.source,
     archived: r.archived,
+    private: r.private === true,
   };
 }
 
@@ -86,7 +95,9 @@ export async function createFixed(db: Db, userId: string, input: FixedInput): Pr
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id::text AS id`,
     [userId, ...valuesOf(input)],
   );
-  return { ok: true, id: (res.rows[0] as { id: string }).id };
+  const id = (res.rows[0] as { id: string }).id;
+  await savePrivate(db, userId, id, input.private);
+  return { ok: true, id };
 }
 
 export async function updateFixed(db: Db, userId: string, id: string, input: FixedInput): Promise<WriteResult> {
@@ -97,7 +108,9 @@ export async function updateFixed(db: Db, userId: string, id: string, input: Fix
      WHERE user_id = $1 AND id = $2 RETURNING id::text AS id`,
     [userId, id, ...valuesOf(input)],
   );
-  return res.rows[0] ? { ok: true, id } : { ok: false, reason: "not_found" };
+  if (!res.rows[0]) return { ok: false, reason: "not_found" };
+  await savePrivate(db, userId, id, input.private);
+  return { ok: true, id };
 }
 
 export async function setFixedActive(db: Db, userId: string, id: string, active: boolean): Promise<boolean> {

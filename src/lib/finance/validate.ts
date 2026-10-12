@@ -67,6 +67,8 @@ export interface FixedInput {
   active: boolean;
   note: string | null;
   source: ExpenseSource;
+  /** 나만 보기 (체크박스 private) */
+  private?: boolean;
 }
 
 /**
@@ -153,6 +155,7 @@ export function parseFixedInput(fields: Fields, today: string, opts: { activeDef
       active,
       note: note ?? null,
       source: source as ExpenseSource,
+      private: isOn(fields.private),
     },
   };
 }
@@ -167,6 +170,8 @@ export interface BalanceInput {
   monthlyPayment: number | null;
   interestRate: number | null;
   endDate: string | null;
+  /** 나만 보기 (체크박스 private) */
+  private?: boolean;
 }
 
 /** 자산·부채 입력. 월 상환액·금리·종료일은 부채에서만 받고 자산이면 버린다. */
@@ -219,6 +224,7 @@ export function parseBalanceInput(fields: Fields): Validation<BalanceInput> {
       monthlyPayment,
       interestRate,
       endDate,
+      private: isOn(fields.private),
     },
   };
 }

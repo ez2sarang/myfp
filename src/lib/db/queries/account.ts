@@ -2,6 +2,7 @@
 // 호출하는 쪽이 트랜잭션으로 감싼다. 감사 기록에는 지운 건수만 남긴다.
 import type { Db } from "../types.ts";
 import { writeAudit } from "./audit.ts";
+import { leaveHousehold } from "./household.ts";
 
 export async function deleteAllUserData(db: Db, userId: string): Promise<{ fixed: number; balances: number; shares: number }> {
   // 월 단위 모델(0006) 테이블은 마이그레이션이 적용된 뒤에만 있다. 있으면 함께 지운다(덮어쓰기는 고정지출보다 먼저).
@@ -33,6 +34,9 @@ export async function deleteAccount(db: Db, userId: string): Promise<DeleteAccou
   const row = me.rows[0];
   if (!row) return { ok: false, reason: "not_found" };
   if (row.role === "admin" && row.status === "active" && admins.rows.every((a) => a.id === userId)) return { ok: false, reason: "last_admin" };
+  // 함께 보기 그룹(0008)이 있으면 먼저 나간다: 방장이면 가장 먼저 가입한 구성원에게 승계, 남는 사람이 없으면 그룹·초대 삭제.
+  const groups = await db.query<{ present: boolean }>("SELECT to_regclass('myfp.household_members') IS NOT NULL AS present");
+  if (groups.rows[0]?.present === true) await leaveHousehold(db, userId);
   const counts = await deleteAllUserData(db, userId);
   await db.query("DELETE FROM myfp.accounts WHERE user_id = $1", [userId]);
   await writeAudit(db, { actorUserId: null, action: "user.delete_self", targetType: "user", targetKey: userId, after: counts });

@@ -89,6 +89,8 @@ export interface FixedExpense {
   note: string | null;
   source: ExpenseSource;
   archived: boolean;
+  /** 나만 보기: 함께 보기 그룹 합산에서 빠진다 (0008 전에는 항상 false) */
+  private?: boolean;
 }
 
 export interface BalanceItem {
@@ -102,6 +104,8 @@ export interface BalanceItem {
   monthlyPayment: number | null;
   interestRate: number | null;
   endDate: string | null;
+  /** 나만 보기: 함께 보기 그룹 합산에서 빠진다 (0008 전에는 항상 false) */
+  private?: boolean;
 }
 
 /** 사용자당 상한 */

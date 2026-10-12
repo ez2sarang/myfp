@@ -97,6 +97,20 @@ const ACTION_FILES: Record<string, { guard: RegExp; actions: string[] }> = {
   "src/lib/actions/share.ts": { guard: /requireActiveUser\(/, actions: ["createShareAction", "revokeShareAction"] },
   "src/lib/actions/account.ts": { guard: /requireActiveUser\(/, actions: ["updateDisplayNameAction", "deleteAllDataAction", "deleteAccountAction"] },
   "src/lib/actions/admin.ts": { guard: /requireAdmin\(/, actions: ["setUserStatusAction"] },
+  "src/lib/actions/household.ts": {
+    guard: /requireActiveUser\(/,
+    actions: [
+      "createHouseholdAction",
+      "renameHouseholdAction",
+      "createInviteAction",
+      "revokeInviteAction",
+      "acceptInviteAction",
+      "updateMembershipAction",
+      "removeMemberAction",
+      "leaveHouseholdAction",
+      "deleteHouseholdAction",
+    ],
+  },
   "src/lib/actions/monthly.ts": {
     guard: /requireActiveUser\(/,
     actions: ["createPlannedAction", "updatePlannedAction", "setPlannedStatusAction", "deletePlannedAction", "setOverrideAction", "clearOverrideAction"],

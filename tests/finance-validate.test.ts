@@ -32,7 +32,10 @@ test("고정지출: 정상 입력 정규화 (월 주기면 납부 월은 버림,
     active: true,
     note: null,
     source: "manual",
+    private: false,
   });
+  const own = parseFixedInput({ name: "a", category: "other", amount: "1", private: "on" }, TODAY);
+  assert.ok(own.ok && own.value.private === true, "나만 보기 체크박스");
 });
 
 test("고정지출: 남은 횟수는 저장 시 종료일로 정규화 (다음 납부일 + N−1 개월)", () => {

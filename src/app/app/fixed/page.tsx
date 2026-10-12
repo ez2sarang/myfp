@@ -130,7 +130,8 @@ export default async function FixedPage({ searchParams }: { searchParams: Params
                   </TD>
                   <TD className="font-medium">
                     {f.name}
-                    {f.note ? <span className="block max-w-56 truncate text-xs text-muted">{f.note}</span> : null}
+                    {f.private ? <span className="ml-1.5 text-xs font-normal text-muted">(나만 보기)</span> : null}
+                    {f.note ?<span className="block max-w-56 truncate text-xs text-muted">{f.note}</span> : null}
                   </TD>
                   <TD>
                     <Badge>{EXPENSE_CATEGORY_LABELS[f.category]}</Badge>

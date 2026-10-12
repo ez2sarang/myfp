@@ -85,6 +85,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       { source: "/s/:path*", headers: shareHeaders },
+      // 그룹 초대(/join/<토큰>)도 주소에 토큰이 있으므로 공유 보기와 같은 헤더(검색 제외·캐시 금지·리퍼러 없음)
+      { source: "/join/:path*", headers: shareHeaders },
       ...(adsServe() ? [{ source: "/guide/:slug", headers: [{ key: "Content-Security-Policy", value: AD_CONTENT_SECURITY_POLICY }] }] : []),
     ];
   },

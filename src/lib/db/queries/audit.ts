@@ -10,13 +10,19 @@ export const AUDIT_ACTIONS = [
   "user.delete_self",
   "share.create",
   "share.revoke",
+  "household.create",
+  "household.invite",
+  "household.join",
+  "household.leave",
+  "household.remove",
+  "household.delete",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export interface AuditEntry {
   actorUserId: string | null;
   action: AuditAction;
-  targetType: "user" | "share_link";
+  targetType: "user" | "share_link" | "household";
   targetKey: string;
   before?: unknown;
   after?: unknown;

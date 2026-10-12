@@ -8,6 +8,11 @@ export const DISPLAY_NAME_MAX = 30;
 // eslint-disable-next-line no-control-regex
 const FORBIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
 
+/** 제어 문자·줄바꿈·양방향 서식 문자가 들어 있는지 (사용자가 정하는 짧은 이름 공통 규칙) */
+export function containsForbidden(raw: string): boolean {
+  return FORBIDDEN.test(raw);
+}
+
 export type DisplayNameResult = { ok: true; value: string } | { ok: false; message: string };
 
 export function validateDisplayName(raw: unknown): DisplayNameResult {

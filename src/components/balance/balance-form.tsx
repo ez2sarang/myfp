@@ -29,6 +29,7 @@ function initialValues(item: BalanceItem | null, kind: "asset" | "liability"): R
     monthly_payment: item.monthlyPayment === null ? "" : String(item.monthlyPayment),
     interest_rate: item.interestRate === null ? "" : String(item.interestRate),
     end_date: item.endDate ?? "",
+    private: item.private ? "on" : "",
   };
 }
 
@@ -100,6 +101,10 @@ export function BalanceForm({
       <Field id={id("note")} label="메모" error={e.note} className="sm:col-span-2">
         <textarea id={id("note")} name="note" defaultValue={v.note} maxLength={500} rows={2} className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-base text-ink" />
       </Field>
+      <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
+        <input type="checkbox" name="private" defaultChecked={v.private === "on"} className="size-4" />
+        나만 보기 (함께 보기 그룹 합산에서 뺀다)
+      </label>
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <SubmitButton variant="primary" size="md">
           {submitLabel}

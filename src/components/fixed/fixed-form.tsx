@@ -35,6 +35,7 @@ function initialValues(item: FixedExpense | null): Record<string, string> {
     note: item.note ?? "",
     source: item.source,
     active: item.active ? "on" : "",
+    private: item.private ? "on" : "",
   };
 }
 
@@ -145,6 +146,10 @@ export function FixedForm({
       <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
         <input type="checkbox" name="active" defaultChecked={v.active === "on"} className="size-4" />
         활성 (합계와 일정에 포함)
+      </label>
+      <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
+        <input type="checkbox" name="private" defaultChecked={v.private === "on"} className="size-4" />
+        나만 보기 (함께 보기 그룹 합산에서 뺀다)
       </label>
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <SubmitButton variant="primary" size="md">

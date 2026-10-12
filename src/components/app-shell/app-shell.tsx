@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, LayoutDashboard, Link2, LogOut, Settings, ShieldCheck, Wallet } from "lucide-react";
+import { CalendarClock, LayoutDashboard, Link2, LogOut, Settings, ShieldCheck, Users, Wallet } from "lucide-react";
 import { signOutAction } from "@/components/auth/actions";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ export const APP_NAV = [
   { href: "/app", label: "대시보드", exact: true },
   { href: "/app/fixed", label: "고정지출" },
   { href: "/app/assets", label: "자산·부채" },
+  { href: "/app/household", label: "함께 보기" },
   { href: "/app/share", label: "공유 링크" },
   { href: "/app/settings", label: "설정" },
 ] as const;
@@ -20,6 +21,7 @@ const NAV_ICONS: Record<(typeof APP_NAV)[number]["href"], React.ReactNode> = {
   "/app": <LayoutDashboard strokeWidth={1.9} />,
   "/app/fixed": <CalendarClock strokeWidth={1.9} />,
   "/app/assets": <Wallet strokeWidth={1.9} />,
+  "/app/household": <Users strokeWidth={1.9} />,
   "/app/share": <Link2 strokeWidth={1.9} />,
   "/app/settings": <Settings strokeWidth={1.9} />,
 };
