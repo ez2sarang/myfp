@@ -24,18 +24,24 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
   }
 }
 
+// proxy 가 직접 만드는 응답(401·로그인 이동)은 캐시하지 않는다. next.config 의 경로별 헤더 규칙은 응답 상태를 가리지 않아서
+// (예: /ocr/* 의 1년 불변 캐시) 이 값이 없으면 로그인 이동 응답이 그 경로의 캐시 헤더를 받아 브라우저에 오래 남을 수 있다.
+const NO_STORE = { "Cache-Control": "no-store" };
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const decision = await decideProxy(pathname, search, () => hasValidSession(request));
   if (decision.action === "next") return NextResponse.next();
   if (decision.action === "unauthorized") {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE });
   }
   const login = request.nextUrl.clone();
   login.pathname = "/login";
   login.search = "";
   if (decision.callback) login.searchParams.set("callbackUrl", decision.callback);
-  return NextResponse.redirect(login, 303);
+  const response = NextResponse.redirect(login, 303);
+  response.headers.set("Cache-Control", NO_STORE["Cache-Control"]);
+  return response;
 }
 
 // 모든 경로에서 실행하고 공개 여부는 classifyPath 가 정한다 (부정형 전방탐색 매처를 쓰지 않는다).

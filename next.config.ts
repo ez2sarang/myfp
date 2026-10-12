@@ -98,7 +98,9 @@ const OCR_WORKER_CONTENT_SECURITY_POLICY = [
 ].join("; ");
 
 // OCR 모델·사전·wasm(/ocr/*)은 파일명에 SHA-256 앞자리를 넣어 내용이 바뀌면 이름이 바뀐다 → 1년 불변 캐시.
-const ocrAssetHeaders = [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }];
+// 로그인이 필요한 경로라 공유 캐시에는 두지 않는다(private). 이 규칙은 응답 상태를 가리지 않으므로, 비로그인 로그인 이동 응답은
+// proxy 가 Cache-Control: no-store 로 덮어쓴다(src/proxy.ts).
+const ocrAssetHeaders = [{ key: "Cache-Control", value: "private, max-age=31536000, immutable" }];
 
 // 서버 액션의 Origin 허용 호스트: 배포 주소(AUTH_URL)의 호스트. 프록시 뒤에서 요청 호스트가 달라도 이 호스트에서 온 액션은 받는다.
 // (Origin 이 없는 요청의 거부는 src/lib/http 의 assertSameOrigin 이 맡는다. Next 자체는 Origin 이 없으면 경고만 하고 실행한다.)

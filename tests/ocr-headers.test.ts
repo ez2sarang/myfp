@@ -116,12 +116,12 @@ test("다른 경로의 헤더는 OCR 규칙이 없을 때와 같다 (/_next/stat
   }
 });
 
-test("/ocr/* 자산은 1년 불변 캐시, 다른 경로에는 Cache-Control 을 붙이지 않는다", async () => {
+test("/ocr/* 자산은 1년 불변 캐시(private, 공유 캐시 제외), 다른 경로에는 Cache-Control 을 붙이지 않는다", async () => {
   const list = await rules();
   const rule = list.find((r) => r.source === ASSETS);
   assert.ok(rule);
-  assert.deepEqual(rule.headers, [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]);
-  assert.equal(effective(list, "/ocr/models/a.onnx").get("Cache-Control"), "public, max-age=31536000, immutable");
+  assert.deepEqual(rule.headers, [{ key: "Cache-Control", value: "private, max-age=31536000, immutable" }]);
+  assert.equal(effective(list, "/ocr/models/a.onnx").get("Cache-Control"), "private, max-age=31536000, immutable");
   assert.equal(effective(list, "/ocr/models/a.onnx").get("Content-Security-Policy"), effective(list, "/").get("Content-Security-Policy"));
   assert.equal(effective(list, UPLOAD).has("Cache-Control"), false);
   assert.equal(effective(list, "/app").has("Cache-Control"), false);
