@@ -54,9 +54,9 @@ function BalanceTable({ title, items }: { title: string; items: BalanceItem[] })
             <TBody>
               {items.map((b) => (
                 <TR key={b.id}>
-                  <TD className="font-medium">
+                  <TD className="min-w-32 whitespace-normal font-medium">
                     {b.name}
-                    {b.note ? <span className="block max-w-56 truncate text-xs text-muted">{b.note}</span> : null}
+                    {b.note ? <span className="block max-w-40 truncate text-xs text-muted lg:max-w-56">{b.note}</span> : null}
                   </TD>
                   <TD>{balanceCategoryLabel(b.kind, b.category)}</TD>
                   <TD className="num text-right font-semibold">{formatKRW(b.amount)}</TD>

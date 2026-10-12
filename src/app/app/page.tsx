@@ -15,7 +15,7 @@ import { listBalances } from "@/lib/db/queries/balance";
 import { listFixed } from "@/lib/db/queries/fixed";
 import { categoryDonut, projectionStack } from "@/lib/finance/charts";
 import { seoulToday } from "@/lib/finance/dates";
-import { FIXED_SORTS, fixedDetails, listHref, parseListQuery, type FixedSort } from "@/lib/finance/detail-list";
+import { FIXED_SORTS, defaultFixedSort, fixedDetails, listHref, parseListQuery, type FixedSort } from "@/lib/finance/detail-list";
 import { EXPENSE_CATEGORIES } from "@/lib/finance/types";
 import { formatDate, formatKRW } from "@/lib/finance/format";
 import { upcomingPayments } from "@/lib/finance/schedule";
@@ -28,7 +28,7 @@ export const metadata: Metadata = { title: "대시보드" };
 // 데이터 가공·정렬·필터는 모두 서버에서 하고 차트 컴포넌트에는 숫자만 넘긴다.
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireActiveUser("/app");
-  const query = parseListQuery<FixedSort>(await searchParams, { sorts: FIXED_SORTS, defaultSort: "date", categories: EXPENSE_CATEGORIES });
+  const query = parseListQuery<FixedSort>(await searchParams, { sorts: FIXED_SORTS, defaultSort: defaultFixedSort(), categories: EXPENSE_CATEGORIES });
   const [fixed, balances] = await Promise.all([listFixed(db, viewer.id), listBalances(db, viewer.id)]);
   const today = seoulToday();
   const summary = summarizeFixed(fixed, today);
@@ -117,7 +117,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </CardBody>
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      {/* 상환 표는 열이 많아 넓은 화면(xl)에서만 옆에 두고, 그보다 좁으면 아래로 내려 숫자가 잘리지 않게 한다. */}
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
         <Card>
           <CardHeader className="flex-row flex-wrap items-end justify-between gap-2">
             <div className="flex flex-col gap-1">
@@ -157,7 +158,26 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {debts.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted">상환 중인 항목이 없습니다.</p>
             ) : (
-              <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "부채 상환 타임라인" }}>
+              <>
+              {/* 좁은 화면: 표 대신 항목별 카드(숫자는 오른쪽 정렬, 줄바꿈 없음) */}
+              <ul aria-label="부채 상환 타임라인" className="-my-1 flex flex-col divide-y divide-line text-sm md:hidden">
+                {debts.map((d) => (
+                  <li key={`${d.kind}-${d.id}`} className="flex flex-col gap-2 py-3">
+                    <span className="font-semibold">{d.name}</span>
+                    <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-xs">
+                      <dt className="text-muted">종료일</dt>
+                      <dd className="num whitespace-nowrap text-right">{d.endDate ? formatDate(d.endDate) : "무기한·미정"}</dd>
+                      <dt className="text-muted">남은 횟수</dt>
+                      <dd className="num whitespace-nowrap text-right">{d.remainingCount === null ? "—" : `${d.remainingCount}회`}</dd>
+                      <dt className="text-muted">월 납입</dt>
+                      <dd className="num whitespace-nowrap text-right">{formatKRW(d.monthly)}</dd>
+                      <dt className="text-muted">남은 납입 총액(추정)</dt>
+                      <dd className="num whitespace-nowrap text-right text-sm font-semibold">{formatKRW(d.remainingTotal)}</dd>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+              <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "부채 상환 타임라인", className: "hidden md:block" }}>
                 <THead>
                   <TR>
                     <TH>항목</TH>
@@ -179,6 +199,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   ))}
                 </TBody>
               </Table>
+              </>
             )}
           </CardBody>
         </Card>

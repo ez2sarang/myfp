@@ -171,7 +171,7 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
             {view.fixed.length === 0 ? (
               <EmptyState title="공유된 고정지출이 없습니다" />
             ) : (
-              <Table>
+              <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "공유된 고정지출 목록" }}>
                 <THead>
                   <TR>
                     <TH>이름</TH>
@@ -186,7 +186,7 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
                 <TBody>
                   {view.fixed.map((f, i) => (
                     <TR key={`${f.name}-${i}`}>
-                      <TD className="font-medium">{f.name}</TD>
+                      <TD className="min-w-32 whitespace-normal font-medium">{f.name}</TD>
                       <TD>{f.category}</TD>
                       <TD>{f.schedule}</TD>
                       <TD className="num text-right font-semibold">{money(f.amount)}</TD>

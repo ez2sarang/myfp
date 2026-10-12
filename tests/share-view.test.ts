@@ -185,6 +185,23 @@ test("세부 목록: 금액 숨김이면 sort=amount 를 요청해도 이름순�
   assert.deepEqual(open.summary?.details.rows.map((r) => r.amount), [9_191_919, 5_454_545, 1_212_121]);
 });
 
+test("세부 목록 기본값: 금액이 보이는 링크는 쿼리 없이 금액 내림차순, 금액 숨김 링크는 이름순 그대로(금액순 선택지 없음)", () => {
+  const items: FixedExpense[] = [
+    { ...fixed[0]!, id: "1", name: "가 항목", amount: 1_000 },
+    { ...fixed[0]!, id: "2", name: "나 항목", amount: 900_000 },
+    { ...fixed[0]!, id: "3", name: "다 항목", amount: 50_000 },
+  ];
+  const open = buildShareView(source({ fixed: items }), NOW);
+  assert.deepEqual(open.summary?.details.query, { sort: "amount", dir: "desc", cat: null });
+  assert.deepEqual(open.summary?.details.rows.map((r) => r.name), ["나 항목", "다 항목", "가 항목"]);
+  assert.equal(open.balances?.details.query.sort, "amount");
+  assert.equal(open.balances?.details.query.dir, "desc");
+  const masked = buildShareView(source({ fixed: items, masks: { amounts: true, details: true } }), NOW);
+  assert.deepEqual(masked.summary?.details.query, { sort: "name", dir: "asc", cat: null });
+  assert.deepEqual(masked.summary?.details.rows.map((r) => r.name), ["가 항목", "나 항목", "다 항목"]);
+  assert.ok(!(masked.summary?.sorts as readonly string[]).includes("amount"));
+});
+
 test("새 공유 링크의 기본값은 금액 표시: 금액 숨기기 체크가 없으면 amounts=false", () => {
   const r = parseShareInput({ scope_summary: "on", expires: "30" }, NOW);
   assert.ok(r.ok);

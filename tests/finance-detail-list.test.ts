@@ -1,7 +1,7 @@
-// 세부 항목 목록: 쿼리 검증, 날짜순(말일·미정·다음 달), 금액순 동률, 분류 필터, 비활성·종료 제외, 금액 숨김 시 금액순 금지.
+// 세부 항목 목록: 쿼리 검증, 기본 정렬(금액 내림차순·숨김이면 이름순), 날짜순(말일·미정·다음 달), 금액순 동률, 분류 필터, 비활성·종료 제외, 금액 숨김 시 금액순 금지.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ASSET_SORTS, FIXED_SORTS, MASKED_FIXED_SORTS, assetDetails, fixedDetails, listHref, parseListQuery, type FixedSort } from "../src/lib/finance/detail-list.ts";
+import { ASSET_SORTS, FIXED_SORTS, MASKED_FIXED_SORTS, assetDetails, defaultFixedSort, fixedDetails, listHref, parseListQuery, type FixedSort } from "../src/lib/finance/detail-list.ts";
 import { ASSET_CATEGORIES, EXPENSE_CATEGORIES, type BalanceItem, type FixedExpense } from "../src/lib/finance/types.ts";
 
 const TODAY = "2026-10-12";
@@ -39,6 +39,18 @@ test("쿼리: 허용 목록 밖의 값은 무시하고 기본값, 금액순 기�
     cat: "cash",
   });
   assert.equal(listHref("/app", "", { sort: "amount", dir: "desc", cat: "telecom" }, {}, "#detail-list"), "/app?sort=amount&dir=desc&cat=telecom#detail-list");
+});
+
+test("기본 정렬: 쿼리가 없으면 금액순 내림차순(큰 금액부터), 금액을 숨기면 금액순 요청도 무시하고 이름순 오름차순", () => {
+  assert.equal(defaultFixedSort(), "amount");
+  assert.equal(defaultFixedSort(true), "name");
+  const query = parseListQuery<FixedSort>({}, { sorts: FIXED_SORTS, defaultSort: defaultFixedSort(), categories: EXPENSE_CATEGORIES });
+  assert.deepEqual(query, { sort: "amount", dir: "desc", cat: null });
+  const items = [fx({ name: "작음", amount: 1_000 }), fx({ name: "큼", amount: 900_000 }), fx({ name: "중간", amount: 50_000 })];
+  assert.deepEqual(fixedDetails(items, TODAY, query).rows.map((r) => r.name), ["큼", "중간", "작음"]);
+  const masked = parseListQuery<FixedSort>({ sort: "amount" }, { sorts: MASKED_FIXED_SORTS, defaultSort: defaultFixedSort(true), categories: EXPENSE_CATEGORIES });
+  assert.deepEqual(masked, { sort: "name", dir: "asc", cat: null });
+  assert.deepEqual(fixedDetails(items, TODAY, masked, { hideAmounts: true }).rows.map((r) => r.name), ["작음", "중간", "큼"]);
 });
 
 test("날짜순: 다음 납부일이 가까운 순, 말일 처리, 다음 달로 넘어간 항목은 뒤, 납부일 미정은 방향과 상관없이 맨 뒤", () => {

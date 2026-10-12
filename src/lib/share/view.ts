@@ -20,6 +20,7 @@ import {
   FIXED_SORTS,
   MASKED_ASSET_SORTS,
   MASKED_FIXED_SORTS,
+  defaultFixedSort,
   assetDetails,
   fixedDetails,
   parseListQuery,
@@ -126,7 +127,7 @@ export function buildShareView(source: ShareSource, now: Date, params: ShareList
     const slices = masks.amounts ? [...s.byCategory].sort((a, b) => a.label.localeCompare(b.label, "ko")) : s.byCategory;
     // 금액을 숨기면 금액순을 허용하지 않고 기본 정렬을 이름순으로 고정한다(요청에 금액순이 있어도 무시).
     const fixedSorts = masks.amounts ? MASKED_FIXED_SORTS : FIXED_SORTS;
-    const fixedQuery = parseListQuery<FixedSort>(params, { sorts: fixedSorts, defaultSort: masks.amounts ? "name" : "date", categories: EXPENSE_CATEGORIES });
+    const fixedQuery = parseListQuery<FixedSort>(params, { sorts: fixedSorts, defaultSort: defaultFixedSort(masks.amounts), categories: EXPENSE_CATEGORIES });
     view.summary = {
       details: fixedDetails(visibleFixed, today, fixedQuery, { hideAmounts: masks.amounts, hideDetails: masks.details }),
       sorts: fixedSorts,

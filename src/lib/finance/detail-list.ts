@@ -28,6 +28,11 @@ export type AssetSort = (typeof ASSET_SORTS)[number];
 export const MASKED_FIXED_SORTS = ["date", "name", "category"] as const satisfies readonly FixedSort[];
 export const MASKED_ASSET_SORTS = ["asOf", "name", "category"] as const satisfies readonly AssetSort[];
 
+/** 고정지출 세부 목록의 기본 정렬: 금액이 보이면 금액순(방향 기본은 내림차순 = 큰 금액부터), 금액을 숨긴 공유 보기는 이름순. */
+export function defaultFixedSort(hideAmounts = false): FixedSort {
+  return hideAmounts ? "name" : "amount";
+}
+
 export const SORT_LABELS: Record<FixedSort | AssetSort, string> = { date: "날짜순", amount: "금액순", name: "이름순", category: "분류순", asOf: "기준일순" };
 
 export interface ListQuery<S extends string> {
