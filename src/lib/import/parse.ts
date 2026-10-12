@@ -206,12 +206,18 @@ export function parseCardList(lines: readonly OcrLineInput[], ctx: CaptureContex
   return drafts;
 }
 
-const TOTAL_KEYS = [/받을\s*금액/, /결제\s*금액/, /승인\s*금액/, /합\s*계/, /총\s*(액|금액)/];
-const NOT_TOTAL = /부가세|과세|면세|공급\s*가/;
-const NOT_ITEM = /합\s*계|부가세|과세|면세|공급\s*가|받을|결제|승인|거스름|현금|카드|할인|포인트|봉사료|총\s*(액|금액)|합\s*산/;
+// 합계 낱말(우선순위 순). 같은 낱말이 여러 행이면 위에서 첫 행(결제 아래쪽 매출금액보다 위쪽 합계가 먼저)
+const TOTAL_KEYS = [/받을\s*금액/, /결제\s*금액/, /승인\s*금액/, /내실\s*금액/, /총\s*구매\s*액/, /합\s*계/, /총\s*(액|금액)/, /매출\s*금액/, /신용\s*액/];
+// 합계·품목이 아닌 줄: 세금 내역과 포인트·잔여·사용가능 금액
+const NOT_TOTAL = /부가세|과세|면세|공급\s*가|포인트|잔여|사용\s*가능/;
+// 품목 표 머리글 낱말(한 행에 2개 이상이면 머리글)
+const ITEM_HEAD = ["상품", "품명", "단가", "수량", "금액"];
+const headWords = (text: string) => ITEM_HEAD.filter((w) => text.includes(w)).length;
 
-/** 영수증: 상호 = 위 25% 안에서 가장 큰 한글 상자, 일시 = 첫 날짜, 합계 = 받을·결제·승인금액·합계 줄의 금액(없으면 최댓값).
- *  품목(한글 이름 + 오른쪽 금액) 합이 합계와 다르면 sum-mismatch */
+/** 영수증: 상호 = 위 25% 안에서 가장 큰 한글 상자, 일시 = 첫 날짜, 합계 = 합계 낱말 줄의 금액(없으면 세금·포인트 줄을 뺀 최댓값).
+ *  품목 합 ≠ 합계면 sum-mismatch. 품목 합은 품목 표 머리글 아래부터 첫 합계 낱말 행 위까지, 행마다 오른쪽 열(x > 0.55W,
+ *  머리글에 「금액」 상자가 따로 있으면 그 열까지 닿는) 맨 끝 상자가 금액으로 끝날 때 그 금액을 더한다(품목이 이름 줄 + 바코드·단가·수량·금액
+ *  줄의 두 줄이어도 된다). 머리글이 없거나 합계가 최댓값이거나 모은 금액이 없으면 검사하지 않는다(주소·안내문 숫자를 품목으로 더하지 않게) */
 export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext): Draft[] {
   const items = layoutItems(lines);
   const rows = groupRows(items);
@@ -226,6 +232,7 @@ export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext
     }
   }
   let total: { row: Item[]; amount: ReturnType<typeof amountsIn>[number] } | null = null;
+  let byKeyword = false;
   for (const key of TOTAL_KEYS) {
     for (const row of rows) {
       const text = joinText(row);
@@ -233,6 +240,7 @@ export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext
       const amount = amountsIn(text).filter((a) => a.value > 0).at(-1);
       if (amount) {
         total = { row, amount };
+        byKeyword = true;
         break;
       }
     }
@@ -240,18 +248,27 @@ export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext
   }
   if (!total) {
     for (const row of rows) {
+      if (NOT_TOTAL.test(joinText(row))) continue;
       const amount = amountsIn(joinText(row)).filter((a) => a.valid && a.value > 0 && !parseDate(joinText(row), ctx.today));
       for (const a of amount) if (!total || a.value > total.amount.value) total = { row, amount: a };
     }
   }
   const extraReasons: Reason[] = [];
-  if (total) {
-    const totalTop = Math.min(...total.row.map((x) => x.cy));
+  const headIndex = rows.findIndex((r) => headWords(joinText(r)) >= 2);
+  const endIndex = rows.findIndex((r, k) => k > headIndex && TOTAL_KEYS.some((key) => key.test(joinText(r))));
+  if (total && byKeyword && headIndex >= 0 && endIndex > headIndex) {
+    const amountCol = rows[headIndex]!.find((x) => x.text.includes("금액") && headWords(x.text) === 1);
     const itemAmounts = rows
-      .filter((r) => r !== total!.row && r !== dated?.row && !r.includes(top as Item) && Math.min(...r.map((x) => x.cy)) < totalTop)
-      .map((r) => joinText(r))
-      .filter((t) => hasHangul(t) && !NOT_ITEM.test(t) && !parseDate(t, ctx.today))
-      .map((t) => amountsIn(t).filter((a) => a.valid).at(-1))
+      .slice(headIndex + 1, endIndex)
+      .filter((r) => !NOT_TOTAL.test(joinText(r)) && !parseDate(joinText(r), ctx.today))
+      .map((r) => {
+        const last = r.reduce((a, b) => (b.x1 > a.x1 ? b : a));
+        if (last.cx <= 0.55 * ctx.width || (amountCol && last.x1 < amountCol.x0)) return undefined;
+        // 상자 글자가 금액으로 끝나야 한다(뒤에 면세 표시 * 는 허용). 350.0g·235g 같은 무게는 금액이 아니다
+        const text = last.text.replace(/\s+/g, " ");
+        const amount = amountsIn(text).at(-1);
+        return amount?.valid && /^[\s*]*$/.test(text.slice(amount.end)) ? amount : undefined;
+      })
       .filter((a) => a !== undefined);
     if (itemAmounts.length > 0 && signedSum(itemAmounts) !== total.amount.value) extraReasons.push("sum-mismatch");
   }

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildCandidates, classify, confidenceOf, similarity } from "../src/lib/import/classify.ts";
 import type { Draft } from "../src/lib/import/parse.ts";
-import { BILL_CAPTURE, CARD_CAPTURE, line, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, row, SHOT } from "./import-fixtures.ts";
+import { BILL_CAPTURE, CARD_CAPTURE, line, MART, MART_RECEIPT, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, row, SHOT } from "./import-fixtures.ts";
 
 function draft(partial: Partial<Draft> & Pick<Draft, "name">): Draft {
   return {
@@ -156,6 +156,11 @@ test("금액 없음·형식 위반·말일 초과는 낮음", () => {
     [12000, ["format", "date-inherited"]],
   ]);
   assert.ok(out.every((c) => c.confidence === "low"));
+});
+
+test("마트 영수증(두 줄 품목) → 후보 1건, 사진 사유만(품목 합 오경보 없음)", () => {
+  const out = buildCandidates([{ lines: MART_RECEIPT(), ctx: MART }]);
+  assert.deepEqual(out.map((c) => [c.layout, c.role, c.name, c.amount, c.reasons]), [["receipt", "total", "가상마트", 16_500, ["photo"]]]);
 });
 
 test("손글씨 확인 신호: 일 순서 어긋남·합계 불일치는 사유로 붙고(교정 없음) 신뢰도는 그대로 낮음", () => {

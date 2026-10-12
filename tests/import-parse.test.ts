@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { detectLayout, groupRows, layoutItems, parseBillTable, parseCardList, parseHandwriting, parseReceipt, type Draft } from "../src/lib/import/parse.ts";
 import type { Reason } from "../src/lib/import/types.ts";
-import { BILL_CAPTURE, CARD_CAPTURE, line, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, row, SHOT } from "./import-fixtures.ts";
+import { BILL_CAPTURE, CARD_CAPTURE, line, MART, MART_RECEIPT, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, row, SHOT } from "./import-fixtures.ts";
 
 test("기울기 보정: 3도 기운 표도 같은 행으로 묶인다", () => {
   const angle = (3 * Math.PI) / 180;
@@ -56,8 +56,34 @@ test("영수증: 상호 = 위 25% 안 가장 큰 한글, 일시 = 첫 날짜, �
   assert.equal(d!.time, "12:30");
   assert.equal(d!.role, "total");
   assert.deepEqual(d!.extraReasons, []);
-  const [mismatch] = parseReceipt(RECEIPT_CAPTURE("2,000"), PHOTO);
-  assert.deepEqual(mismatch!.extraReasons, ["sum-mismatch"]);
+  // 품목 합 검사는 품목 표 머리글이 있을 때만(한 줄 품목도 머리글이 있으면 검사한다)
+  assert.deepEqual(parseReceipt(RECEIPT_CAPTURE("1,000", { header: true }), PHOTO)[0]!.extraReasons, []);
+  assert.deepEqual(parseReceipt(RECEIPT_CAPTURE("2,000", { header: true }), PHOTO)[0]!.extraReasons, ["sum-mismatch"]);
+  assert.deepEqual(parseReceipt(RECEIPT_CAPTURE("2,000"), PHOTO)[0]!.extraReasons, [], "머리글이 없으면 합이 달라도 검사하지 않는다");
+});
+
+test("마트 영수증(두 줄 품목): 합계 = 총구매액(포인트·부가세·단가 아님), 품목 합은 머리글 아래 오른쪽 열만 더해 주소·안내문·무게 숫자가 섞이지 않는다", () => {
+  const [d] = parseReceipt(MART_RECEIPT(), MART);
+  assert.deepEqual([d!.name, d!.date, d!.time, d!.amount?.value, d!.extraReasons], ["가상마트", "2026-10-05", "14:20", 16_500, []]);
+  assert.equal(detectLayout(MART_RECEIPT(), MART), "receipt");
+  assert.deepEqual(parseReceipt(MART_RECEIPT({ amounts: ["4,000", "7,500", "2,500", "3,000"] }), MART)[0]!.extraReasons, ["sum-mismatch"], "품목 하나가 다르면");
+  const noHead = parseReceipt(MART_RECEIPT({ amounts: ["4,000", "7,500", "2,500", "3,000"], header: false }), MART)[0]!;
+  assert.deepEqual([noHead.amount?.value, noHead.extraReasons], [16_500, []], "머리글이 없으면 합이 달라도 경고 없음");
+});
+
+test("영수증 합계 낱말: 내실금액 > 총구매액 > … > 매출금액 > 신용액(「신용」「액:」 쪼개짐 허용), 포인트 줄은 합계가 아니고, 낱말이 없으면 세금·포인트를 뺀 최댓값", () => {
+  const only = (totals: [string, string][], sales = false) => parseReceipt(MART_RECEIPT({ totals, sales }), MART)[0]!;
+  assert.equal(only([["신용액", "16,500"]]).amount?.value, 16_500, "신용 + 액: 두 상자");
+  assert.equal(only([], true).amount?.value, 16_500, "매출금액");
+  const both = only([
+    ["총구매액", "17,000"],
+    ["내실금액", "16,500"],
+  ]);
+  assert.deepEqual([both.amount?.value, both.extraReasons], [16_500, []], "내실금액이 총구매액보다 먼저");
+  // 낱말이 하나도 없으면 최댓값(포인트 98,700·과세물품가액 줄 제외), 이때는 품목 합 검사를 하지 않는다
+  const fallback = only([]);
+  assert.deepEqual([fallback.amount?.value, fallback.extraReasons], [7_000, []]);
+  assert.notEqual(parseReceipt(MART_RECEIPT(), MART)[0]!.amount?.value, 98_700);
 });
 
 test("영수증: 합계 낱말이 없으면 가장 큰 금액", () => {
