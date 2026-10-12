@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { detectLayout, groupRows, layoutItems, parseBillTable, parseCardList, parseHandwriting, parseReceipt, type Draft } from "../src/lib/import/parse.ts";
 import type { Reason } from "../src/lib/import/types.ts";
-import { BILL_CAPTURE, CARD_CAPTURE, line, MART, MART_RECEIPT, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, row, SHOT } from "./import-fixtures.ts";
+import { BILL_CAPTURE, CARD_CAPTURE, DENSE, DENSE_RECEIPT, line, MART, MART_RECEIPT, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, row, SHOT } from "./import-fixtures.ts";
 
 test("기울기 보정: 3도 기운 표도 같은 행으로 묶인다", () => {
   const angle = (3 * Math.PI) / 180;
@@ -69,6 +69,25 @@ test("마트 영수증(두 줄 품목): 합계 = 총구매액(포인트·부가�
   assert.deepEqual(parseReceipt(MART_RECEIPT({ amounts: ["4,000", "7,500", "2,500", "3,000"] }), MART)[0]!.extraReasons, ["sum-mismatch"], "품목 하나가 다르면");
   const noHead = parseReceipt(MART_RECEIPT({ amounts: ["4,000", "7,500", "2,500", "3,000"], header: false }), MART)[0]!;
   assert.deepEqual([noHead.amount?.value, noHead.extraReasons], [16_500, []], "머리글이 없으면 합이 달라도 경고 없음");
+});
+
+const xRange = (box: readonly (readonly number[])[] | null) => (box ? [Math.min(...box.map((p) => p[0]!)), Math.max(...box.map((p) => p[0]!))] : null);
+
+test("촘촘한 영수증: 이웃 줄이 한 행으로 묶여도 금액 열 상자를 하나씩 더하고, 금액 조각 상자는 합계 금액 글자 상자(배경 잡음 아님)", () => {
+  const [d] = parseReceipt(DENSE_RECEIPT(), DENSE);
+  assert.deepEqual([d!.name, d!.amount?.value, d!.extraReasons], ["가상마트", 11_000, []]);
+  assert.equal(detectLayout(DENSE_RECEIPT(), DENSE), "receipt");
+  const [x0, x1] = xRange(d!.box)!;
+  assert.ok(x0 === 561 && (x1 === 626 || x1 === 628), `금액 상자여야 한다: ${x0}-${x1}`);
+  // 묶인 행 안의 4번 품목 금액도 더한다: 그 금액만 바꾸면 경고
+  assert.deepEqual(parseReceipt(DENSE_RECEIPT({ amounts: ["5,000", "3,000", "1,500", "2,000"] }), DENSE)[0]!.extraReasons, ["sum-mismatch"]);
+  assert.deepEqual(parseReceipt(DENSE_RECEIPT({ amounts: ["5,000", "3,000", "2,000", "1,500"] }), DENSE)[0]!.extraReasons, ["sum-mismatch"]);
+});
+
+test("손글씨 금액 조각 상자: 같은 행 오른쪽 배경 잡음이 아니라 금액이 든 상자", () => {
+  const [d] = parseHandwriting([line("10월", 40, 30, 120, 70), line("5 가상헬스 50,000", 40, 100, 400, 140), line("×", 560, 105, 580, 125)], PHOTO);
+  assert.equal(d!.amount?.value, 50_000);
+  assert.deepEqual(xRange(d!.box), [40, 400]);
 });
 
 test("영수증 합계 낱말: 내실금액 > 총구매액 > … > 매출금액 > 신용액(「신용」「액:」 쪼개짐 허용), 포인트 줄은 합계가 아니고, 낱말이 없으면 세금·포인트를 뺀 최댓값", () => {

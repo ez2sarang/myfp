@@ -85,6 +85,10 @@ export function groupRows(items: readonly Item[]): Item[][] {
 
 const joinText = (items: readonly Item[]) => items.map((x) => x.text).join(" ").replace(/\s+/g, " ").trim();
 
+/** 금액 글자를 실제로 담은 상자(같은 금액이 여러 상자면 오른쪽). 행 묶음의 마지막 상자는 배경 잡음일 수 있어 쓰지 않는다 */
+const amountBox = (row: readonly Item[], amount: AmountResult | null): Point[] | undefined =>
+  amount ? row.filter((x) => amountsIn(x.text).some((a) => a.value === amount.value)).at(-1)?.box : undefined;
+
 function draft(layout: Layout, partial: Partial<Draft> & Pick<Draft, "name" | "lines">): Draft {
   return {
     layout,
@@ -215,9 +219,10 @@ const ITEM_HEAD = ["상품", "품명", "단가", "수량", "금액"];
 const headWords = (text: string) => ITEM_HEAD.filter((w) => text.includes(w)).length;
 
 /** 영수증: 상호 = 위 25% 안에서 가장 큰 한글 상자, 일시 = 첫 날짜, 합계 = 합계 낱말 줄의 금액(없으면 세금·포인트 줄을 뺀 최댓값).
- *  품목 합 ≠ 합계면 sum-mismatch. 품목 합은 품목 표 머리글 아래부터 첫 합계 낱말 행 위까지, 행마다 오른쪽 열(x > 0.55W,
- *  머리글에 「금액」 상자가 따로 있으면 그 열까지 닿는) 맨 끝 상자가 금액으로 끝날 때 그 금액을 더한다(품목이 이름 줄 + 바코드·단가·수량·금액
- *  줄의 두 줄이어도 된다). 머리글이 없거나 합계가 최댓값이거나 모은 금액이 없으면 검사하지 않는다(주소·안내문 숫자를 품목으로 더하지 않게) */
+ *  품목 합 ≠ 합계면 sum-mismatch. 품목 합은 품목 표 머리글 상자 아래부터 첫 합계 낱말 상자 위까지, 오른쪽 열(x > 0.55W, 머리글에
+ *  「금액」 상자가 따로 있으면 그 열까지 닿는)에서 글자가 금액으로 끝나는 상자를 하나씩 더한다(품목이 이름 줄 + 바코드·단가·수량·금액 줄의
+ *  두 줄이어도 된다). 행 묶음은 쓰지 않는다: 줄 간격이 촘촘하면 이웃 줄이 한 행으로 묶여 행마다 맨 끝 금액 하나만 보면 금액이 빠진다.
+ *  머리글이 없거나 합계가 최댓값이거나 합계 낱말 상자를 못 찾거나 모은 금액이 없으면 검사하지 않는다(주소·안내문 숫자를 품목으로 더하지 않게) */
 export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext): Draft[] {
   const items = layoutItems(lines);
   const rows = groupRows(items);
@@ -254,23 +259,29 @@ export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext
     }
   }
   const extraReasons: Reason[] = [];
-  const headIndex = rows.findIndex((r) => headWords(joinText(r)) >= 2);
-  const endIndex = rows.findIndex((r, k) => k > headIndex && TOTAL_KEYS.some((key) => key.test(joinText(r))));
-  if (total && byKeyword && headIndex >= 0 && endIndex > headIndex) {
-    const amountCol = rows[headIndex]!.find((x) => x.text.includes("금액") && headWords(x.text) === 1);
-    const itemAmounts = rows
-      .slice(headIndex + 1, endIndex)
-      .filter((r) => !NOT_TOTAL.test(joinText(r)) && !parseDate(joinText(r), ctx.today))
-      .map((r) => {
-        const last = r.reduce((a, b) => (b.x1 > a.x1 ? b : a));
-        if (last.cx <= 0.55 * ctx.width || (amountCol && last.x1 < amountCol.x0)) return undefined;
+  const head = rows.find((r) => headWords(joinText(r)) >= 2)?.filter((x) => headWords(x.text) > 0);
+  if (total && byKeyword && head && head.length > 0) {
+    const headBottom = Math.max(...head.map((x) => x.y1));
+    const amountCol = head.find((x) => x.text.includes("금액") && headWords(x.text) === 1);
+    const sameLine = (a: Item, b: Item) => Math.abs(a.cy - b.cy) <= 0.5 * Math.min(a.h, b.h);
+    // 합계 낱말 상자(「신용」「액:」처럼 바로 오른쪽 상자와 쪼개진 낱말 포함)
+    const isKey = (x: Item) => {
+      const next = items.filter((o) => o !== x && o.x0 >= x.x1 - 4 && sameLine(o, x)).sort((a, b) => a.x0 - b.x0)[0];
+      return TOTAL_KEYS.some((key) => key.test(x.text) || (next !== undefined && key.test(`${x.text}${next.text}`)));
+    };
+    const keyTop = Math.min(...items.filter((x) => x.cy > headBottom && isKey(x)).map((x) => x.y0));
+    const itemAmounts = items
+      .filter((x) => x.cy > headBottom && x.cy < keyTop && x.cx > 0.55 * ctx.width && !(amountCol && x.x1 < amountCol.x0))
+      // 같은 줄에 세금 내역·포인트 낱말이 있으면 품목이 아니다
+      .filter((x) => !items.some((o) => sameLine(o, x) && NOT_TOTAL.test(o.text)))
+      .map((x) => {
         // 상자 글자가 금액으로 끝나야 한다(뒤에 면세 표시 * 는 허용). 350.0g·235g 같은 무게는 금액이 아니다
-        const text = last.text.replace(/\s+/g, " ");
+        const text = x.text.replace(/\s+/g, " ");
         const amount = amountsIn(text).at(-1);
         return amount?.valid && /^[\s*]*$/.test(text.slice(amount.end)) ? amount : undefined;
       })
       .filter((a) => a !== undefined);
-    if (itemAmounts.length > 0 && signedSum(itemAmounts) !== total.amount.value) extraReasons.push("sum-mismatch");
+    if (Number.isFinite(keyTop) && itemAmounts.length > 0 && signedSum(itemAmounts) !== total.amount.value) extraReasons.push("sum-mismatch");
   }
   const all = items.map((x) => x.text).join(" ");
   return [
@@ -287,7 +298,7 @@ export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext
       context: `${name} ${all}`,
       extraReasons,
       lines: [...new Set([...(top ? [top.i] : []), ...(dated?.row.map((x) => x.i) ?? []), ...(total?.row.map((x) => x.i) ?? [])])],
-      box: total?.row.at(-1)?.box ?? null,
+      box: amountBox(total?.row ?? [], total?.amount ?? null) ?? total?.row.at(-1)?.box ?? null,
     }),
   ];
 }
@@ -389,7 +400,7 @@ export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureCon
       cancelled: Boolean(amount?.negative) || isCancelText(rest),
       context: rest,
       lines: row.map((x) => x.i),
-      box: row.at(-1)?.box ?? null,
+      box: amountBox(row, amount) ?? row.at(-1)?.box ?? null,
     });
     // 직전의 유효한 일(1~그 달 말일, 월 제목이 없어 말일을 모르면 31 까지) 행과 비교한다. 어긋난 행만 표시하고 다음 행은 이 행과 비교한다
     // (같은 일 반복은 같은 날 여러 건). 말일 초과 행은 이미 표시되고, 잘못 읽힌 값일 수 있어 기준으로 쓰지 않는다(경고가 연쇄되지 않게)
