@@ -64,6 +64,17 @@ export default function PrivacyPage() {
         <h2>7. 보안</h2>
         <p>모든 통신은 HTTPS 로 암호화되고, 데이터 접근은 서버에서 본인 데이터로만 제한됩니다. 공유 링크 주소는 서버에 해시로만 저장됩니다.</p>
       </section>
+      <section>
+        <h2>8. 공개 가이드 글의 광고</h2>
+        <p>
+          누구나 읽을 수 있는 가이드 글(/guide) 화면에는 앞으로 Google AdSense 광고가 게재될 수 있으며, 게재하는 경우 Google 을 비롯한 제3자 공급업체가 쿠키·광고
+          식별자를 사용해 광고를 게재하고 측정할 수 있습니다. 맞춤 광고는{" "}
+          <a href="https://adssettings.google.com" rel="noopener noreferrer nofollow">
+            Google 광고 설정
+          </a>
+          에서 끌 수 있습니다. 로그인 후 화면과 공유 보기에는 광고나 광고 스크립트를 넣지 않으며, 사용자가 입력한 재무 정보는 광고에 쓰지 않습니다.
+        </p>
+      </section>
     </LegalPage>
   );
 }
