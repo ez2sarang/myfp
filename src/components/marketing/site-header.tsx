@@ -3,7 +3,8 @@ import { Menu } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { buttonClass } from "@/components/ui/button";
 import { SITE_NAME } from "@/lib/site";
-import { NAV } from "./content";
+import { NAV, SIGNED_IN } from "./content";
+import { SessionLink } from "./session-link";
 
 // 소개 페이지 머리: 넓은 화면은 가운데 메뉴, 좁은 화면은 <details> 로 여닫는 메뉴(자바스크립트 없이 동작).
 export function SiteHeader() {
@@ -22,12 +23,14 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Link href="/login" className={buttonClass("ghost", "sm", "hidden sm:inline-flex")}>
-            로그인
-          </Link>
-          <Link href="/login" className={buttonClass("primary", "sm")}>
-            시작하기
-          </Link>
+          <SessionLink signedOutHref="/login" signedOutLabel="로그인" hideWhenSignedIn className={buttonClass("ghost", "sm", "hidden sm:inline-flex")} />
+          <SessionLink
+            signedOutHref="/login"
+            signedOutLabel="시작하기"
+            signedInHref={SIGNED_IN.href}
+            signedInLabel={SIGNED_IN.nav}
+            className={buttonClass("primary", "sm", "min-w-[5.5rem]")}
+          />
           <details className="relative md:hidden">
             <summary
               aria-label="메뉴 열기"
@@ -44,9 +47,13 @@ export function SiteHeader() {
                   {item.label}
                 </a>
               ))}
-              <Link href="/login" className="flex min-h-11 items-center rounded-md px-3 hover:bg-bg-alt sm:hidden">
-                로그인
-              </Link>
+              <SessionLink
+                signedOutHref="/login"
+                signedOutLabel="로그인"
+                signedInHref={SIGNED_IN.href}
+                signedInLabel={SIGNED_IN.nav}
+                className="flex min-h-11 items-center rounded-md px-3 hover:bg-bg-alt sm:hidden"
+              />
             </nav>
           </details>
         </div>

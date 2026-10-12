@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
-import { HERO, PROOF } from "./content";
+import { HERO, PROOF, SIGNED_IN } from "./content";
+import { SessionLink } from "./session-link";
 import { ProductPreview } from "./product-preview";
 
 export function Hero() {
@@ -22,10 +22,14 @@ export function Hero() {
         </h1>
         <p className="rise rise-3 mt-6 max-w-2xl text-base text-muted sm:text-lg">{HERO.lead}</p>
         <div className="rise rise-3 mt-8 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
-          <Link href={HERO.primaryCta.href} className={buttonClass("primary", "lg")}>
-            {HERO.primaryCta.label}
-            <ArrowRight aria-hidden="true" className="size-4" />
-          </Link>
+          <SessionLink
+            signedOutHref={HERO.primaryCta.href}
+            signedOutLabel={HERO.primaryCta.label}
+            signedInHref={SIGNED_IN.href}
+            signedInLabel={SIGNED_IN.cta}
+            className={buttonClass("primary", "lg", "sm:min-w-[11.5rem]")}
+            trailing={<ArrowRight aria-hidden="true" className="size-4" />}
+          />
           <a href={HERO.secondaryCta.href} className={buttonClass("secondary", "lg")}>
             {HERO.secondaryCta.label}
           </a>

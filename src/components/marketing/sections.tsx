@@ -22,7 +22,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CTA, DEMO_ITEMS, DEMO_LOAN_END_INDEX, DEMO_MONTHS, FAQ, FEATURES, HOW_NOTES, SECURITY, SHARE, STEPS } from "./content";
+import { CTA, DEMO_ITEMS, DEMO_LOAN_END_INDEX, DEMO_MONTHS, FAQ, FEATURES, HOW_NOTES, SECURITY, SHARE, SIGNED_IN, STEPS } from "./content";
+import { SessionLink } from "./session-link";
 
 // 소개 페이지 섹션들. 그림은 모두 CSS·SVG 로 만든 장식(aria-hidden)이고, 숫자는 content.ts 의 가상 예시다.
 
@@ -380,13 +381,14 @@ export function StartCta() {
           </h2>
           <p className="text-band-muted sm:text-lg">{CTA.body}</p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href={CTA.action.href}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-band-ink px-5 font-semibold tracking-tight text-band transition-opacity hover:opacity-90"
-            >
-              {CTA.action.label}
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
+            <SessionLink
+              signedOutHref={CTA.action.href}
+              signedOutLabel={CTA.action.label}
+              signedInHref={SIGNED_IN.href}
+              signedInLabel={SIGNED_IN.cta}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-band-ink px-5 font-semibold tracking-tight text-band transition-opacity hover:opacity-90 sm:min-w-[11.5rem]"
+              trailing={<ArrowRight aria-hidden="true" className="size-4" />}
+            />
             <a
               href={CTA.secondary.href}
               className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/20 px-5 font-semibold tracking-tight text-band-ink transition-colors hover:bg-white/10"

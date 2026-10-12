@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import { SITE_NAME } from "@/lib/site";
-import { NAV } from "./content";
+import { NAV, SIGNED_IN } from "./content";
+import { SessionLink } from "./session-link";
 
 export function SiteFooter() {
   return (
@@ -30,9 +31,7 @@ export function SiteFooter() {
           <Link href="/terms" className="w-fit py-1 hover:text-ink">
             이용약관
           </Link>
-          <Link href="/login" className="w-fit py-1 hover:text-ink">
-            로그인
-          </Link>
+          <SessionLink signedOutHref="/login" signedOutLabel="로그인" signedInHref={SIGNED_IN.href} signedInLabel={SIGNED_IN.nav} className="w-fit py-1 hover:text-ink" />
         </nav>
       </div>
       <div className="border-t border-line">

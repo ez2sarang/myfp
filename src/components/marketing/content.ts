@@ -15,6 +15,9 @@ export const NAV = [
   { href: "#faq", label: "자주 묻는 질문" },
 ] as const;
 
+// 로그인 상태(브라우저에서 확인)일 때 바뀌는 링크 문구·목적지. session-link.tsx 참고.
+export const SIGNED_IN = { href: "/app", nav: "대시보드", cta: "대시보드 열기" };
+
 export const HERO = {
   eyebrow: "개인 고정지출·자산 관리 · 현재 무료",
   title: "매달 나가는 돈을\n한 화면에, 월 단위로.",
