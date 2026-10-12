@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, CalendarDays, Plus, Receipt, Wallet } from "lucide-react";
+import { DisplayNameHint } from "@/components/app-shell/display-name-hint";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { DonutChart } from "@/components/charts/donut-chart";
 import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
@@ -13,6 +14,7 @@ import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { db } from "@/lib/db/pool";
 import { listBalances } from "@/lib/db/queries/balance";
 import { listFixed } from "@/lib/db/queries/fixed";
+import { getDisplayName } from "@/lib/db/queries/users";
 import { categoryDonut, projectionStack } from "@/lib/finance/charts";
 import { seoulToday } from "@/lib/finance/dates";
 import { FIXED_SORTS, defaultFixedSort, fixedDetails, listHref, parseListQuery, type FixedSort } from "@/lib/finance/detail-list";
@@ -29,7 +31,12 @@ export const metadata: Metadata = { title: "대시보드" };
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireActiveUser("/app");
   const query = parseListQuery<FixedSort>(await searchParams, { sorts: FIXED_SORTS, defaultSort: defaultFixedSort(), categories: EXPENSE_CATEGORIES });
-  const [fixed, balances] = await Promise.all([listFixed(db, viewer.id), listBalances(db, viewer.id)]);
+  // 표시 이름 안내는 공급자 이름이 없을 때만 확인한다
+  const [fixed, balances, displayName] = await Promise.all([
+    listFixed(db, viewer.id),
+    listBalances(db, viewer.id),
+    viewer.name === null ? getDisplayName(db, viewer.id) : Promise.resolve(viewer.name),
+  ]);
   const today = seoulToday();
   const summary = summarizeFixed(fixed, today);
   const totals = summarizeBalances(balances);
@@ -49,6 +56,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <PageHeader eyebrow={`이번 달 · ${monthLabel}`} title="대시보드" description={`${formatDate(today)} 기준 (서울 시간)`} />
+      {viewer.name === null && displayName === null ? <DisplayNameHint /> : null}
       {empty ? (
         <div
           role="note"

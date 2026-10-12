@@ -1,13 +1,37 @@
 "use server";
 
-// 설정 화면 서버 액션: 내 데이터 전체 삭제, 계정 삭제. assertSameOrigin → requireActiveUser 순서로 시작하고, 확인 문구가 정확히 일치해야 한다.
+// 설정 화면 서버 액션: 표시 이름 저장·지우기, 내 데이터 전체 삭제, 계정 삭제. assertSameOrigin → requireActiveUser 순서로 시작하고,
+// 삭제는 확인 문구가 정확히 일치해야 한다. 대상은 언제나 세션 사용자(viewer.id)이며 폼이 보낸 사용자 id 는 읽지 않는다.
 import { revalidatePath } from "next/cache";
-import { withTransaction } from "@/lib/db/pool";
+import { validateDisplayName } from "@/lib/account/display-name";
+import { db, withTransaction } from "@/lib/db/pool";
 import { signOut } from "@/lib/auth";
 import { deleteAccount, deleteAllUserData } from "@/lib/db/queries/account";
+import { setDisplayName } from "@/lib/db/queries/users";
 import { assertSameOrigin } from "@/lib/http/assert-same-origin";
 import { requireActiveUser } from "@/lib/session";
 import { ACCOUNT_DELETE_PHRASE, DELETE_CONFIRM_PHRASE, type ActionState } from "./state";
+
+export async function updateDisplayNameAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await assertSameOrigin();
+  const viewer = await requireActiveUser("/app/settings");
+  let value: string | null = null;
+  if (formData.get("intent") !== "clear") {
+    const checked = validateDisplayName(formData.get("displayName"));
+    if (!checked.ok) return { ok: false, message: checked.message, values: { displayName: String(formData.get("displayName") ?? "").slice(0, 100) } };
+    value = checked.value;
+  }
+  try {
+    await setDisplayName(db, viewer.id, value);
+  } catch (error) {
+    // 0005 적용 전(42703 열 없음) 등: 저장하지 않고 안내만
+    const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code: unknown }).code) : "";
+    console.error("[account]", error instanceof Error ? error.name : "Error", code);
+    return { ok: false, message: "표시 이름을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
+  }
+  revalidatePath("/app", "layout");
+  return { ok: true, message: value === null ? "표시 이름을 지웠습니다." : "표시 이름을 저장했습니다." };
+}
 
 export async function deleteAllDataAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await assertSameOrigin();

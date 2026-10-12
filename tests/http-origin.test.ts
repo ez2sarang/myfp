@@ -95,7 +95,7 @@ const ACTION_FILES: Record<string, { guard: RegExp; actions: string[] }> = {
   },
   "src/lib/actions/balance.ts": { guard: /requireActiveUser\(/, actions: ["createBalanceAction", "updateBalanceAction", "deleteBalanceAction"] },
   "src/lib/actions/share.ts": { guard: /requireActiveUser\(/, actions: ["createShareAction", "revokeShareAction"] },
-  "src/lib/actions/account.ts": { guard: /requireActiveUser\(/, actions: ["deleteAllDataAction", "deleteAccountAction"] },
+  "src/lib/actions/account.ts": { guard: /requireActiveUser\(/, actions: ["updateDisplayNameAction", "deleteAllDataAction", "deleteAccountAction"] },
   "src/lib/actions/admin.ts": { guard: /requireAdmin\(/, actions: ["setUserStatusAction"] },
 };
 

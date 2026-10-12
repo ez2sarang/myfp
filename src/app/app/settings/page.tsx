@@ -6,14 +6,18 @@ import { DeleteAllForm } from "@/components/shared/delete-all-form";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
-import { deleteAccountAction, deleteAllDataAction } from "@/lib/actions/account";
+import { DisplayNameForm } from "@/components/settings/display-name-form";
+import { deleteAccountAction, deleteAllDataAction, updateDisplayNameAction } from "@/lib/actions/account";
 import { ACCOUNT_DELETE_PHRASE, DELETE_CONFIRM_PHRASE } from "@/lib/actions/state";
+import { db } from "@/lib/db/pool";
+import { getDisplayName } from "@/lib/db/queries/users";
 import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "설정" };
 
 export default async function SettingsPage() {
   const viewer = await requireActiveUser("/app/settings");
+  const displayName = await getDisplayName(db, viewer.id);
   return (
     <>
       <PageHeader eyebrow="계정 · 데이터" title="설정" />
@@ -25,7 +29,7 @@ export default async function SettingsPage() {
           <CardBody>
             <dl className="grid grid-cols-[5.5rem_1fr] text-sm [&>dd]:border-b [&>dd]:border-line [&>dd]:py-2.5 [&>dt]:border-b [&>dt]:border-line [&>dt]:py-2.5">
               <dt className="text-muted">이름</dt>
-              <dd className="font-medium">{viewer.name ?? "—"}</dd>
+              <dd className="font-medium">{viewer.name ?? "— (로그인 공급자가 이름을 주지 않았습니다)"}</dd>
               <dt className="text-muted">이메일</dt>
               <dd className="break-all">{viewer.email ?? "— (카카오 로그인은 이메일을 받지 않습니다)"}</dd>
               <dt className="text-muted">권한</dt>
@@ -33,6 +37,9 @@ export default async function SettingsPage() {
                 <Badge tone={viewer.role === "admin" ? "brand" : "neutral"}>{viewer.role === "admin" ? "관리자" : "회원"}</Badge>
               </dd>
             </dl>
+            <div className="mt-5">
+              <DisplayNameForm action={updateDisplayNameAction} current={displayName} />
+            </div>
             <form action={signOutAction} className="mt-5">
               <Button type="submit" variant="secondary">
                 로그아웃
