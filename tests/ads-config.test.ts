@@ -68,8 +68,9 @@ test("off(기본)·잘못된 값: 가이드 글 전용 CSP 규칙이 없다 (모
     { NEXT_PUBLIC_ADSENSE_MODE: "serve", NEXT_PUBLIC_ADSENSE_CLIENT: "ca-pub-bad" },
   ]) {
     const list = await withEnv(env, rules);
-    // 사진 인식 업로드 화면(/app/import/photo)의 전용 CSP 는 광고와 무관하다 (tests/ocr-headers.test.ts)
-    const cspRules = list.filter((r) => r.source !== "/app/import/photo" && r.headers.some((h) => h.key === "Content-Security-Policy"));
+    // 사진 인식 업로드 화면·워커 진입 파일의 전용 CSP 는 광고와 무관하다 (tests/ocr-headers.test.ts)
+    const ocr = (source: string) => source === "/app/import/photo" || source.startsWith("/_next/static/chunks/:file(");
+    const cspRules = list.filter((r) => !ocr(r.source) && r.headers.some((h) => h.key === "Content-Security-Policy"));
     assert.equal(cspRules.length, 1, JSON.stringify(env));
     assert.equal(list.some((r) => r.source.startsWith("/guide")), false);
   }

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/copy-ort.mjs && next dev -p 3330",
-    "build": "node scripts/copy-ort.mjs && next build",
+    "build": "node scripts/copy-ort.mjs && next build && node scripts/check-ocr-worker.mjs",
     "start": "next start -p 3330",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"tests/**/*.test.ts\"",

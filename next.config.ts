@@ -63,15 +63,15 @@ const AD_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-// 사진 인식(OCR) 업로드 화면(/app/import/photo) 하나에만: 브라우저 안에서 ONNX 모델을 돌리려면 WebAssembly 컴파일('wasm-unsafe-eval')과
-// 같은 출처 워커가 필요하다. 'unsafe-eval' 은 열지 않고, 외부 전송을 막도록 connect-src 는 'self' 그대로 두며, https 이미지도 받지 않는다.
+// 사진 인식(OCR) 업로드 화면(/app/import/photo): 전체 CSP 보다 좁게만 바꾼다(https 이미지·blob 워커 없음, 같은 출처 워커만).
+// wasm 은 이 문서가 아니라 워커 안에서 돈다. 문서 CSP 는 클라이언트 이동(Link) 뒤에도 같은 탭에 남으므로 여기서는 아무것도 넓히지 않는다.
 // 이 화면에는 광고·분석 스크립트가 없다. 같은 키는 뒤 규칙이 앞 규칙을 덮어쓰므로 전체 규칙보다 뒤에 둔다. 다른 경로의 CSP 는 그대로다(시험으로 고정).
 const OCR_UPLOAD_PATH = "/app/import/photo";
 
 const OCR_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
-  "worker-src 'self' blob:",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  "worker-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
@@ -79,6 +79,21 @@ const OCR_CONTENT_SECURITY_POLICY = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https://accounts.google.com https://kauth.kakao.com https://accounts.kakao.com",
+  "frame-ancestors 'none'",
+].join("; ");
+
+// OCR 워커 진입 파일(Turbopack 이 만드는 /_next/static/chunks/turbopack-worker-<해시>.js) 하나에만 WebAssembly 컴파일을 연다.
+// 브라우저는 전용 워커 안의 wasm 컴파일에 문서가 아니라 워커 스크립트 응답의 CSP 를 적용한다(격리 Chrome 154 로 확인).
+// 일반 <script> 로 받은 응답의 CSP 는 무시되므로 이 헤더는 워커로 실행될 때만 효과가 있다. 'unsafe-eval'·'unsafe-inline'·blob 은 열지 않는다.
+// 이 경로가 "업로드 화면 밖 헤더 불변" 원칙의 유일한 예외다. 빌드 뒤 scripts/check-ocr-worker.mjs 가 산출물 파일명이 이 규칙과 맞는지 확인한다.
+const OCR_WORKER_SOURCE = "/_next/static/chunks/:file(turbopack-worker-[^/]+\\.js)";
+
+const OCR_WORKER_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
   "frame-ancestors 'none'",
 ].join("; ");
 
@@ -112,6 +127,7 @@ const nextConfig: NextConfig = {
       ...(adsServe() ? [{ source: "/guide/:slug", headers: [{ key: "Content-Security-Policy", value: AD_CONTENT_SECURITY_POLICY }] }] : []),
       { source: OCR_UPLOAD_PATH, headers: [{ key: "Content-Security-Policy", value: OCR_CONTENT_SECURITY_POLICY }] },
       { source: "/ocr/:path*", headers: ocrAssetHeaders },
+      { source: OCR_WORKER_SOURCE, headers: [{ key: "Content-Security-Policy", value: OCR_WORKER_CONTENT_SECURITY_POLICY }] },
     ];
   },
 };
