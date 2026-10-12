@@ -27,10 +27,10 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
   return (
     <div className="flex flex-col gap-5">
       {state?.ok && state.shareUrl ? (
-        <div role="status" className="flex flex-col gap-2 rounded-lg border border-brand bg-info-bg p-4 text-info-ink">
+        <div role="status" className="flex flex-col gap-3 rounded-lg border border-brand/40 bg-info-bg p-4 text-info-ink sm:p-5">
           <p className="text-sm font-semibold">{state.message}</p>
           <div className="flex flex-wrap items-center gap-2">
-            <Input readOnly value={state.shareUrl} aria-label="공유 링크 주소" className="flex-1 font-mono text-sm" onFocus={(ev) => ev.currentTarget.select()} />
+            <Input readOnly value={state.shareUrl} aria-label="공유 링크 주소" className="min-w-0 flex-1 bg-surface font-mono text-sm" onFocus={(ev) => ev.currentTarget.select()} />
             <Button variant="primary" size="md" onClick={() => copy(state.shareUrl as string)}>
               {copied ? "복사됨" : "복사"}
             </Button>
@@ -39,10 +39,10 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
         </div>
       ) : null}
 
-      <p className="text-sm text-muted">
+      <p className="max-w-prose text-sm leading-relaxed text-muted">
         공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입(로그인)만 하면 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다.
       </p>
-      <form action={formAction} className="grid gap-4 sm:grid-cols-2" onSubmit={() => setCopied(false)}>
+      <form action={formAction} className="grid gap-x-5 gap-y-4 sm:grid-cols-2" onSubmit={() => setCopied(false)}>
         <Field id="share-label" label="이름 (나만 보임)" error={e.label} hint="예: 가족 공유용">
           <Input id="share-label" name="label" maxLength={60} placeholder="공유 링크" />
         </Field>
@@ -54,19 +54,19 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
             <option value="never">무기한</option>
           </Select>
         </Field>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-semibold">포함할 항목</legend>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="scope_summary" defaultChecked className="size-4" /> 대시보드 요약(세부 항목 포함)
+        <fieldset className="flex flex-col gap-1 rounded-lg border border-line bg-surface-2 px-4 pb-4 pt-2">
+          <legend className="px-1 text-sm font-semibold">포함할 항목</legend>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm sm:min-h-9">
+            <input type="checkbox" name="scope_summary" defaultChecked className="size-4 shrink-0 accent-[var(--brand)]" /> 대시보드 요약(세부 항목 포함)
           </label>
           <p className="ml-6 text-xs text-muted">
             요약에는 효력 있는 모든 고정지출의 세부 목록(이름·분류·납부일·결제수단·종료일, 금액 표시 링크면 금액)이 함께 보입니다.
           </p>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="scope_fixed" defaultChecked className="size-4" /> 고정지출 목록
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm sm:min-h-9">
+            <input type="checkbox" name="scope_fixed" defaultChecked className="size-4 shrink-0 accent-[var(--brand)]" /> 고정지출 목록
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="scope_balances" className="size-4" /> 자산·부채
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm sm:min-h-9">
+            <input type="checkbox" name="scope_balances" className="size-4 shrink-0 accent-[var(--brand)]" /> 자산·부채
           </label>
           {e.scopes ? (
             <p role="alert" className="text-xs font-medium text-danger">
@@ -74,13 +74,13 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
             </p>
           ) : null}
         </fieldset>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-semibold">가리기</legend>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="mask_amounts" className="size-4" /> 금액 숨기기
+        <fieldset className="flex flex-col gap-1 rounded-lg border border-line bg-surface-2 px-4 pb-4 pt-2">
+          <legend className="px-1 text-sm font-semibold">가리기</legend>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm sm:min-h-9">
+            <input type="checkbox" name="mask_amounts" className="size-4 shrink-0 accent-[var(--brand)]" /> 금액 숨기기
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="mask_details" defaultChecked className="size-4" /> 메모·기관명 숨기기
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm sm:min-h-9">
+            <input type="checkbox" name="mask_details" defaultChecked className="size-4 shrink-0 accent-[var(--brand)]" /> 메모·기관명 숨기기
           </label>
           <p className="text-xs text-muted">
             기본은 금액이 보입니다. 금액 숨기기를 켜면 금액·합계·비중과 차트가 빠지지만 항목 구성(이름·분류·납부일)은 보입니다. 숨긴 값은 서버에서 지운 뒤 보냅니다.
