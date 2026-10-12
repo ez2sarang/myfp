@@ -1,6 +1,6 @@
 "use server";
 
-// 관리자 서버 액션: 사용자 승인·차단. assertSameOrigin → requireAdmin 순서로 시작하고, 변경은 한 트랜잭션에서 보호 규칙(자기 자신·마지막 관리자)을
+// 관리자 서버 액션: 가입 대기 처리·차단·해제. assertSameOrigin → requireAdmin 순서로 시작하고, 변경은 한 트랜잭션에서 보호 규칙(자기 자신·마지막 관리자)을
 // 적용한 뒤 감사 기록을 남긴다. 거부되면 롤백하고 메시지만 돌려준다.
 import { revalidatePath } from "next/cache";
 import type { GuardResult } from "@/lib/admin/guards";
@@ -18,7 +18,7 @@ class Rejected extends Error {
   }
 }
 
-const LABELS: Record<string, string> = { active: "승인(활성)", blocked: "차단", pending: "대기" };
+const LABELS: Record<string, string> = { active: "활성", blocked: "차단", pending: "대기" };
 
 export async function setUserStatusAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await assertSameOrigin();

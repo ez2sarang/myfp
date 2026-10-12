@@ -135,6 +135,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: cleanText(user.name, 100),
           image: cleanImage(user.image),
           adminEmailsRaw: process.env.ADMIN_EMAILS,
+          signupModeRaw: process.env.SIGNUP_MODE,
+          maxActiveUsersRaw: process.env.MAX_ACTIVE_USERS,
         }),
       );
       return outcome.allowed;

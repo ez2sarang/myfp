@@ -40,7 +40,7 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
       ) : null}
 
       <p className="text-sm text-muted">
-        공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입만 하면 승인 없이 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다.
+        공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입(로그인)만 하면 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다.
       </p>
       <form action={formAction} className="grid gap-4 sm:grid-cols-2" onSubmit={() => setCopied(false)}>
         <Field id="share-label" label="이름 (나만 보임)" error={e.label} hint="예: 가족 공유용">

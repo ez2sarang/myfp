@@ -21,14 +21,14 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   return getUserRecord(db, userId);
 });
 
-/** 로그인만 확인한다 (승인 대기 안내 화면용). */
+/** 로그인만 확인한다 (가입 대기 안내 화면용). */
 export async function requireUser(callbackPath = "/app"): Promise<Viewer> {
   const viewer = await getViewer();
   if (!viewer) redirect(buildLoginUrl(callbackPath));
   return viewer;
 }
 
-/** 로그인 + 활성 계정. 승인 대기·차단 계정은 안내 화면으로 보낸다. */
+/** 로그인 + 활성 계정. 가입 대기·차단 계정은 안내 화면으로 보낸다. */
 export async function requireActiveUser(callbackPath = "/app"): Promise<Viewer> {
   const viewer = await getViewer();
   const gate = decideGate(viewer);

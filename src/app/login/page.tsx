@@ -101,7 +101,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Params
       ) : null}
 
       <p role="note" className="text-center text-xs text-muted">
-        처음 로그인하면 가입 신청이 접수되고, 승인 후 이용할 수 있습니다. 계속하면{" "}
+        처음 로그인하면 바로 가입되어 내 고정지출·자산을 관리할 수 있습니다. 계속하면{" "}
         <Link href="/terms" className="underline underline-offset-2">
           이용약관
         </Link>

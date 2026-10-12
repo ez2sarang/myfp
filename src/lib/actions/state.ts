@@ -21,3 +21,6 @@ export function formFields(formData: FormData, max = 2000): Record<string, strin
 
 /** 내 데이터 전체 삭제 확인 문구 */
 export const DELETE_CONFIRM_PHRASE = "내 데이터 삭제";
+
+/** 계정 삭제 확인 문구 */
+export const ACCOUNT_DELETE_PHRASE = "계정 삭제";

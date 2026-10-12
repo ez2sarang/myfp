@@ -31,7 +31,7 @@ export default async function SharePage() {
     <>
       <PageHeader
         title="공유 링크"
-        description={`읽기 전용 링크입니다. 공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입만 하면 승인 없이 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다. 사용 중인 링크는 최대 ${LIMITS.activeShareLinks}개 (지금 ${activeCount}개).`}
+        description={`읽기 전용 링크입니다. 공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입(로그인)만 하면 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다. 사용 중인 링크는 최대 ${LIMITS.activeShareLinks}개 (지금 ${activeCount}개).`}
       />
       <Card>
         <CardHeader>

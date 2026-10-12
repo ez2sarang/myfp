@@ -1,6 +1,6 @@
 // 로그인 시 사용자 생성·연결·갱신. 정책 판정(decideProvision)은 순수 함수이고 여기서는 그 결과를 하나의 트랜잭션에서 DB 에 반영한다.
 import type { Db } from "../types.ts";
-import { canLinkByEmail, decideProvision, type UserRole, type UserStatus } from "../../auth-core/provision.ts";
+import { canLinkByEmail, decideProvision, parseMaxActiveUsers, parseSignupMode, type UserRole, type UserStatus } from "../../auth-core/provision.ts";
 import { normalizeEmail } from "../../auth-core/admin-emails.ts";
 import { writeAudit } from "./audit.ts";
 
@@ -11,6 +11,10 @@ export interface ProvisionRequest {
   name: string | null;
   image: string | null;
   adminEmailsRaw: string | undefined;
+  /** env SIGNUP_MODE 원문 (open 기본, 그 밖은 approval) */
+  signupModeRaw?: string | undefined;
+  /** env MAX_ACTIVE_USERS 원문 (기본 200) */
+  maxActiveUsersRaw?: string | undefined;
 }
 
 export type ProvisionOutcome =
@@ -42,6 +46,13 @@ export async function provisionUser(db: Db, req: ProvisionRequest): Promise<Prov
     emailMatch = found.rows[0];
   }
 
+  // 신규 생성이 될 때만 활성 사용자 수를 센다 (동시 가입 경쟁으로 상한을 조금 넘을 수 있다 — 상한은 남용 완화 장치다).
+  let capacityFull = false;
+  if (!linked.rows[0] && !emailMatch) {
+    const active = await db.query<{ n: string }>("SELECT count(*)::text AS n FROM myfp.users WHERE status = 'active'");
+    capacityFull = Number(active.rows[0]?.n ?? 0) >= parseMaxActiveUsers(req.maxActiveUsersRaw);
+  }
+
   const decision = decideProvision({
     provider: req.provider,
     accountId: req.accountId,
@@ -49,6 +60,8 @@ export async function provisionUser(db: Db, req: ProvisionRequest): Promise<Prov
     linked: linked.rows[0] ?? null,
     emailMatch: emailMatch ?? null,
     adminEmailsRaw: req.adminEmailsRaw,
+    signupMode: parseSignupMode(req.signupModeRaw),
+    capacityFull,
   });
   if (decision.deny) return { allowed: false, reason: decision.reason };
 
@@ -79,7 +92,7 @@ export async function provisionUser(db: Db, req: ProvisionRequest): Promise<Prov
       action: "user.signup",
       targetType: "user",
       targetKey: userId,
-      after: { provider: req.provider, status: decision.status, role: decision.ensureAdmin ? "admin" : "member" },
+      after: { provider: req.provider, status: decision.status, role: decision.ensureAdmin ? "admin" : "member", reason: decision.reason },
     });
   }
 

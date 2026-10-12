@@ -7,6 +7,7 @@ export const AUDIT_ACTIONS = [
   "user.status",
   "user.role",
   "data.delete_all",
+  "user.delete_self",
   "share.create",
   "share.revoke",
 ] as const;

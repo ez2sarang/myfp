@@ -5,22 +5,33 @@ import { Badge } from "@/components/ui/badge";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { setUserStatusAction } from "@/lib/actions/admin";
 import { db } from "@/lib/db/pool";
-import { listUsers } from "@/lib/db/queries/users";
+import { countUsersByStatus, listUsers } from "@/lib/db/queries/users";
 import { seoulToday } from "@/lib/finance/dates";
 import { formatDate } from "@/lib/finance/format";
 import { requireAdmin } from "@/lib/session";
 
 export const metadata: Metadata = { title: "사용자 관리" };
 
-const STATUS_LABEL = { active: "활성", pending: "승인 대기", blocked: "차단" } as const;
+const STATUS_LABEL = { active: "활성", pending: "가입 대기", blocked: "차단" } as const;
 const STATUS_TONE = { active: "positive", pending: "warn", blocked: "negative" } as const;
 
 export default async function AdminUsersPage() {
   const admin = await requireAdmin();
-  const users = await listUsers(db);
+  const [users, counts] = await Promise.all([listUsers(db), countUsersByStatus(db)]);
   return (
     <>
-      <PageHeader title="사용자 관리" description="가입 신청을 승인하거나 계정을 차단합니다. 자기 자신과 마지막 관리자는 차단할 수 없습니다." />
+      <PageHeader
+        title="사용자 관리"
+        description="가입 대기(가입 상한 초과·승인제 모드에서 생김)를 처리하거나 계정을 차단·해제합니다. 자기 자신과 마지막 관리자는 차단할 수 없습니다."
+      />
+      <dl className="mb-4 grid grid-cols-3 gap-3 text-center sm:max-w-md">
+        {(["active", "pending", "blocked"] as const).map((s) => (
+          <div key={s} className="rounded-lg border border-line bg-surface px-3 py-2">
+            <dt className="text-xs text-muted">{STATUS_LABEL[s]}</dt>
+            <dd className="num text-xl font-bold">{counts[s]}</dd>
+          </div>
+        ))}
+      </dl>
       <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "사용자 목록" }}>
         <THead>
           <TR>

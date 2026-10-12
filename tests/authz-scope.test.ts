@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createBalance, deleteBalance, getBalance, listBalances, listSnapshots, updateBalance } from "../src/lib/db/queries/balance.ts";
 import { createFixed, deleteFixed, getFixed, listFixed, setFixedActive, setFixedArchived, updateFixed } from "../src/lib/db/queries/fixed.ts";
-import { deleteAllUserData } from "../src/lib/db/queries/account.ts";
+import { deleteAccount, deleteAllUserData } from "../src/lib/db/queries/account.ts";
 import { createShareLink, listShareLinks, revokeShareLink } from "../src/lib/db/queries/share.ts";
 import type { FixedInput, BalanceInput } from "../src/lib/finance/validate.ts";
 import { fakeDb, type Call } from "./fake-db.ts";
@@ -135,4 +135,45 @@ test("자산·부채 수정·삭제도 시작할 때 같은 사용자 행을 잠
   const d = fakeDb(() => ({ rows: [], rowCount: 1 }));
   await deleteBalance(d.db, ME, OTHER_ITEM);
   assert.match(d.calls[0]!.text, /^SELECT id FROM myfp\.users WHERE id = \$1 FOR UPDATE$/);
+});
+
+test("계정 삭제: 세션 사용자 하나만 지운다(재무·스냅샷·공유·로그인 연결·사용자 행), 감사 기록에는 id 와 건수만", async () => {
+  const f = fakeDb((c) => {
+    if (c.text.includes("role = 'admin' AND status = 'active'")) return { rows: [{ id: "admin-1" }] };
+    if (c.text.startsWith("SELECT role, status FROM myfp.users")) return { rows: [{ role: "member", status: "active" }] };
+    return { rows: [], rowCount: 2 };
+  });
+  assert.deepEqual(await deleteAccount(f.db, ME), { ok: true });
+  const deletes = f.calls.filter((c) => c.text.startsWith("DELETE"));
+  assert.deepEqual(
+    deletes.map((c) => c.text.replace(/ WHERE.*/, "")),
+    ["DELETE FROM myfp.fixed_expenses", "DELETE FROM myfp.balance_items", "DELETE FROM myfp.share_links", "DELETE FROM myfp.balance_snapshots", "DELETE FROM myfp.accounts", "DELETE FROM myfp.users"],
+  );
+  for (const d of deletes) {
+    assert.match(d.text, /WHERE (user_id|id) = \$1$/);
+    assert.deepEqual(d.params, [ME], "다른 사용자 id 는 어떤 삭제에도 들어가지 않는다");
+  }
+  const audit = f.calls.find((c) => c.text.startsWith("INSERT INTO myfp.audit_log") && c.params[1] === "user.delete_self");
+  assert.ok(audit);
+  assert.equal(audit.params[0], null);
+  assert.equal(audit.params[3], ME);
+  assert.doesNotMatch(String(audit.params[5]), /@|name|email/);
+});
+
+test("계정 삭제: 마지막 활성 관리자는 거부하고 아무것도 지우지 않는다. 다른 관리자가 있으면 허용", async () => {
+  const lastAdmin = fakeDb((c) => {
+    if (c.text.includes("role = 'admin' AND status = 'active'")) return { rows: [{ id: ME }] };
+    if (c.text.startsWith("SELECT role, status FROM myfp.users")) return { rows: [{ role: "admin", status: "active" }] };
+    return { rows: [], rowCount: 1 };
+  });
+  assert.deepEqual(await deleteAccount(lastAdmin.db, ME), { ok: false, reason: "last_admin" });
+  assert.equal(lastAdmin.calls.some((c) => c.text.startsWith("DELETE")), false);
+  const twoAdmins = fakeDb((c) => {
+    if (c.text.includes("role = 'admin' AND status = 'active'")) return { rows: [{ id: ME }, { id: "admin-2" }] };
+    if (c.text.startsWith("SELECT role, status FROM myfp.users")) return { rows: [{ role: "admin", status: "active" }] };
+    return { rows: [], rowCount: 1 };
+  });
+  assert.deepEqual(await deleteAccount(twoAdmins.db, ME), { ok: true });
+  const gone = fakeDb((c) => (c.text.includes("role = 'admin'") ? { rows: [] } : { rows: [], rowCount: 0 }));
+  assert.deepEqual(await deleteAccount(gone.db, ME), { ok: false, reason: "not_found" });
 });

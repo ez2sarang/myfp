@@ -44,7 +44,7 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
       <main id="main" className="wrap flex flex-col gap-6 pb-16">
         {pendingViewer ? (
           <p role="note" className="rounded-md border border-line bg-info-bg px-4 py-3 text-sm text-info-ink">
-            승인 전이라 내 공간(고정지출·자산 관리)은 아직 사용할 수 없고 공유 보기만 열 수 있습니다.
+            지금 계정이 가입 대기 상태라 내 공간(고정지출·자산 관리)은 아직 사용할 수 없고 공유 보기만 열 수 있습니다.
           </p>
         ) : null}
         {hideAmounts ? <p className="text-sm text-muted">공유한 사람이 금액을 숨겼습니다. 금액·합계·비중과 차트 없이 항목 정보만 보입니다.</p> : null}

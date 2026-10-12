@@ -57,7 +57,15 @@ export async function listUsers(db: Db): Promise<AdminUserRow[]> {
   }));
 }
 
-/** 사용자 상태 변경 (승인·차단·차단 해제). 호출하는 쪽이 트랜잭션으로 감싼다. */
+/** 상태별 사용자 수 (관리자 화면 요약) */
+export async function countUsersByStatus(db: Db): Promise<Record<UserStatus, number>> {
+  const res = await db.query<{ status: UserStatus; n: string }>("SELECT status, count(*)::text AS n FROM myfp.users GROUP BY status");
+  const out: Record<UserStatus, number> = { active: 0, pending: 0, blocked: 0 };
+  for (const r of res.rows) if (r.status in out) out[r.status] = Number(r.n);
+  return out;
+}
+
+/** 사용자 상태 변경 (가입 대기 처리·차단·차단 해제). 호출하는 쪽이 트랜잭션으로 감싼다. */
 export async function setUserStatus(db: Db, actorId: string, targetId: string, newStatus: string): Promise<GuardResult> {
   if (!isUuid(targetId)) return { ok: false, code: "not_found", message: "사용자를 찾을 수 없습니다." };
   if (newStatus !== "active" && newStatus !== "blocked" && newStatus !== "pending") {

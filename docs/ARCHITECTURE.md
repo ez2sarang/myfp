@@ -53,6 +53,11 @@ flowchart LR
 
 색·간격·반경·타이포는 `src/app/globals.css` 의 CSS 변수와 Tailwind 4 `@theme inline` 에 있다. 값만 바꾸면 전체 룩이 바뀐다. 차트 색은 `--chart-1`…`--chart-11`, `--chart-asset`, `--chart-liability`, `--chart-grid`, `--chart-axis`.
 
+## 가입과 계정 상태
+
+신규 가입은 기본적으로 바로 active(member)다(`auth-core/provision.ts`). 안전장치: env `SIGNUP_MODE=approval`(허용 목록 밖 값도 approval)이면 신규는 pending,
+active 사용자가 `MAX_ACTIVE_USERS`(기본 200) 이상이면 신규는 pending. pending 은 공유 보기만 열 수 있고 `/app` 은 막힌다. 계정 자기 삭제는 `db/queries/account.ts` 의 `deleteAccount`.
+
 ## 공유 열람 대상 (향후 설계 메모)
 
 지금은 `audience = members`(로그인한 active·pending 사용자 누구나)만 쓴다. `db/migrations/0003_share_audience.sql` 이 `share_links.audience`(members·designated)를 추가하지만 아직 운영 DB 에 적용하지 않았다.

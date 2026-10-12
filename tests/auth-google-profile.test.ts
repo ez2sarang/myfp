@@ -24,6 +24,8 @@ function provisionFor(raw: Record<string, unknown>) {
     linked: null,
     emailMatch: null,
     adminEmailsRaw: ADMINS,
+    signupMode: "open",
+    capacityFull: false,
   });
 }
 
@@ -51,12 +53,13 @@ test("검증된 이메일이어도 형식이 이상하거나 비어 있으면 nu
   }
 });
 
-test("미검증 이메일이 ADMIN_EMAILS 와 일치해도 관리자로 승격되지 않고, 승인제대로 pending", () => {
+test("미검증 이메일이 ADMIN_EMAILS 와 일치해도 관리자로 승격되지 않는다 (일반 회원으로 가입)", () => {
   for (const value of [false, undefined, "true"]) {
     const decision = provisionFor(profile({ email_verified: value }));
     assert.ok(!decision.deny);
     assert.equal(decision.ensureAdmin, false, `email_verified=${JSON.stringify(value)}`);
-    assert.equal(decision.status, "pending");
+    assert.equal(decision.status, "active");
+    assert.equal(decision.reason, "open");
     assert.equal(isBootstrapAdmin({ email: googleProfileToUser(profile({ email_verified: value }) as never).email, provider: "google", adminEmailsRaw: ADMINS }), false);
   }
 });

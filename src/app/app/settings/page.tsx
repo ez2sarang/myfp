@@ -5,8 +5,8 @@ import { DeleteAllForm } from "@/components/shared/delete-all-form";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
-import { deleteAllDataAction } from "@/lib/actions/account";
-import { DELETE_CONFIRM_PHRASE } from "@/lib/actions/state";
+import { deleteAccountAction, deleteAllDataAction } from "@/lib/actions/account";
+import { ACCOUNT_DELETE_PHRASE, DELETE_CONFIRM_PHRASE } from "@/lib/actions/state";
 import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "설정" };
@@ -62,6 +62,19 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardBody>
             <DeleteAllForm action={deleteAllDataAction} phrase={DELETE_CONFIRM_PHRASE} />
+          </CardBody>
+        </Card>
+
+        <Card className="border-danger/40">
+          <CardHeader>
+            <CardTitle>계정 삭제</CardTitle>
+            <p className="text-sm text-muted">
+              재무 데이터·순자산 기록·공유 링크·로그인 연결과 계정 자체를 지우고 로그아웃합니다. 되돌릴 수 없습니다. 감사 기록에는 사용자 id 와 지운 건수만 남습니다.
+              {viewer.role === "admin" ? " 마지막 관리자 계정은 삭제할 수 없습니다." : ""}
+            </p>
+          </CardHeader>
+          <CardBody>
+            <DeleteAllForm action={deleteAccountAction} phrase={ACCOUNT_DELETE_PHRASE} inputId="account-delete-confirm" buttonLabel="계정 삭제" />
           </CardBody>
         </Card>
       </div>
