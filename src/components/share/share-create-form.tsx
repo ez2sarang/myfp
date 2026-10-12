@@ -39,6 +39,9 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
         </div>
       ) : null}
 
+      <p className="text-sm text-muted">
+        공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입만 하면 승인 없이 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다.
+      </p>
       <form action={formAction} className="grid gap-4 sm:grid-cols-2" onSubmit={() => setCopied(false)}>
         <Field id="share-label" label="이름 (나만 보임)" error={e.label} hint="예: 가족 공유용">
           <Input id="share-label" name="label" maxLength={60} placeholder="공유 링크" />
@@ -77,7 +80,7 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
             <input type="checkbox" name="mask_details" defaultChecked className="size-4" /> 메모·기관명 숨기기
           </label>
           <p className="text-xs text-muted">
-            금액 숨기기를 켜면 금액·합계·비중과 모든 차트가 빠지고, 항목 이름·분류·납부일 같은 금액 아닌 정보만 보입니다. 숨긴 값은 서버에서 지운 뒤 보냅니다.
+            기본은 금액이 보입니다. 금액 숨기기를 켜면 금액·합계·비중과 차트가 빠지지만 항목 구성(이름·분류·납부일)은 보입니다. 숨긴 값은 서버에서 지운 뒤 보냅니다.
           </p>
           <p className="text-xs text-muted">
             메모·기관명 숨기기는 「메모」와 「기관·카드명」 칸만 가립니다. 항목 이름에 적은 기관명은 그대로 보이니 필요하면 이름을 바꿔 주세요.

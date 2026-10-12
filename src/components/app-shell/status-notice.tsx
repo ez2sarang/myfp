@@ -5,7 +5,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 const COPY = {
   pending: {
     title: "승인을 기다리고 있습니다",
-    description: "가입은 완료되었습니다. 관리자가 승인하면 myfp 를 사용할 수 있습니다. 승인되면 이 화면을 새로 고쳐 주세요.",
+    description:
+      "가입은 완료되었습니다. 관리자가 승인하면 내 공간(고정지출·자산 관리)을 사용할 수 있습니다. 승인되면 이 화면을 새로 고쳐 주세요. 받은 공유 링크는 이 상태에서도 열 수 있습니다.",
   },
   blocked: {
     title: "이용이 제한된 계정입니다",

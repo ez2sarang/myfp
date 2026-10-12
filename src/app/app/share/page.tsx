@@ -31,7 +31,7 @@ export default async function SharePage() {
     <>
       <PageHeader
         title="공유 링크"
-        description={`로그인 없이 볼 수 있는 읽기 전용 링크입니다. 사용 중인 링크는 최대 ${LIMITS.activeShareLinks}개 (지금 ${activeCount}개).`}
+        description={`읽기 전용 링크입니다. 공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입만 하면 승인 없이 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다. 사용 중인 링크는 최대 ${LIMITS.activeShareLinks}개 (지금 ${activeCount}개).`}
       />
       <Card>
         <CardHeader>
@@ -43,7 +43,7 @@ export default async function SharePage() {
       </Card>
 
       <h2 className="mb-1 mt-8 text-xl">내 링크</h2>
-      <p className="mb-3 text-xs text-muted">열람 수에는 메신저·SNS 의 링크 미리보기 봇이 주소를 열어 본 횟수가 섞일 수 있습니다.</p>
+      <p className="mb-3 text-xs text-muted">열람 수는 로그인한 사람(나 자신 제외)이 연 횟수입니다. 누가 열었는지는 기록하지 않습니다.</p>
       {links.length === 0 ? (
         <EmptyState title="만든 링크가 없습니다" />
       ) : (

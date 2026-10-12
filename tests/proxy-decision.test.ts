@@ -15,7 +15,7 @@ function session(valid: boolean | "throws") {
 }
 
 test("공개 경로는 세션을 확인하지 않고 통과", async () => {
-  for (const p of ["/", "/login", "/privacy", "/terms", "/s/some-token", "/api/health", "/api/auth/session", "/_next/static/x.js"]) {
+  for (const p of ["/", "/login", "/privacy", "/terms", "/api/health", "/api/auth/session", "/_next/static/x.js"]) {
     const s = session(false);
     assert.deepEqual(await decideProxy(p, "", s.hasSession), { action: "next" }, p);
     assert.equal(s.state.calls, 0, `${p}: 공개 경로는 세션 확인이 필요 없다`);

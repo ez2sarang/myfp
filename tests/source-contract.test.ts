@@ -80,3 +80,18 @@ test("차트 컴포넌트는 use client 이고 DB·세션·서버 모듈을 가�
     assert.match(readCode(page), /from "@\/lib\/finance\/charts"/, `${page}: 차트 데이터는 서버에서 가공`);
   }
 });
+
+test("공유 보기 가드: 페이지는 토큰 조회보다 먼저 requireShareViewer 를 부르고, /app·/admin 은 이 가드를 쓰지 않는다 (pending 의 내 공간 접근을 열지 않음)", () => {
+  const page = readCode("src/app/s/[token]/page.tsx");
+  assert.ok(guardsBeforeFirstReturn(page, /await requireShareViewer\(`\/s\/\$\{token\}`\)/), "가드가 첫 return 앞");
+  assert.ok(page.indexOf("requireShareViewer(") < page.indexOf("resolveShareView("), "가드가 토큰 조회보다 먼저");
+  assert.match(page, /resolveShareView\(db, token, new Date\(\), await searchParams, viewer\.id\)/);
+  assert.doesNotMatch(page, /requireActiveUser|requireUser\(/);
+  for (const f of walk(path.join(root, "src", "app")).filter((x) => /\.(ts|tsx)$/.test(x))) {
+    const rel = path.relative(root, f).split(path.sep).join("/");
+    if (rel.startsWith("src/app/app/") || rel.startsWith("src/app/admin/")) assert.doesNotMatch(readCode(rel), /requireShareViewer/, rel);
+  }
+  const session = readCode("src/lib/session.ts");
+  assert.match(session, /export async function requireActiveUser[\s\S]*?if \(gate !== "ok"\) redirect\(PENDING_PATH\);/, "requireActiveUser 는 pending 을 계속 막는다");
+  assert.match(session, /export async function requireShareViewer[\s\S]*?decideShareAccess\(viewer\)/);
+});

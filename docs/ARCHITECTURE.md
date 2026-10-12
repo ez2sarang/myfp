@@ -5,11 +5,12 @@
 ```mermaid
 flowchart LR
   B[브라우저] --> P[src/proxy.ts<br/>세션 쿠키 확인]
-  P -->|공개 경로| PUB["/, /login, /privacy, /terms, /s/토큰, /api/health"]
+  P -->|공개 경로| PUB["/, /login, /privacy, /terms, /api/health"]
+  P -->|"/s/토큰 (세션 필요)"| SV[requireShareViewer<br/>active·pending 만, blocked 안내]
   P -->|보호 경로| G[페이지·서버 액션·라우트<br/>requireActiveUser / requireAdmin]
   G --> Q[src/lib/db/queries<br/>WHERE user_id = 세션 사용자]
   Q --> DB[(PostgreSQL 스키마 myfp)]
-  PUB -->|/s/토큰| R[share/resolve.ts<br/>해시 조회·만료·폐기 판정]
+  SV --> R[share/resolve.ts<br/>해시 조회·만료·폐기·audience 판정]
   R --> V[share/view.ts<br/>섹션 선택·가림 적용]
 ```
 
@@ -20,7 +21,7 @@ flowchart LR
 | `src/app/(marketing)` | 공개 소개·약관 페이지 (디자인 단계는 이 폴더와 `src/components/marketing` 만 다룬다) |
 | `src/app/app` | 로그인 후 화면 (`/app/*`) |
 | `src/app/admin` | 관리자 화면 |
-| `src/app/s/[token]` | 비로그인 공유 보기 (읽기 전용) |
+| `src/app/s/[token]` | 공유 보기 (읽기 전용, 로그인한 active·pending 사용자만) |
 | `src/lib/auth-core` | 인증 관련 순수 로직 (경로 분류, callbackUrl 정리, 가입·연결 정책, 관문 판정) |
 | `src/lib/finance` | 재무 순수 로직 (날짜·일정·검증·요약·CSV·시드 정규화) — 모두 Asia/Seoul 달력 날짜 |
 | `src/lib/share` | 공유 토큰·설정·보기 데이터 |
@@ -51,3 +52,8 @@ flowchart LR
 ## 디자인 토큰
 
 색·간격·반경·타이포는 `src/app/globals.css` 의 CSS 변수와 Tailwind 4 `@theme inline` 에 있다. 값만 바꾸면 전체 룩이 바뀐다. 차트 색은 `--chart-1`…`--chart-11`, `--chart-asset`, `--chart-liability`, `--chart-grid`, `--chart-axis`.
+
+## 공유 열람 대상 (향후 설계 메모)
+
+지금은 `audience = members`(로그인한 active·pending 사용자 누구나)만 쓴다. `db/migrations/0003_share_audience.sql` 이 `share_links.audience`(members·designated)를 추가하지만 아직 운영 DB 에 적용하지 않았다.
+향후 `designated` 는 링크마다 지정한 회원(별도 테이블: share_link_id·user_id)만 열람하게 할 예정이다. 그 전까지 앱은 `designated` 값을 만나면 열람을 거부한다(`share/resolve.ts`).

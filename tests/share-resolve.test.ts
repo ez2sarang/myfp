@@ -8,6 +8,7 @@ import { fakeDb, type Call } from "./fake-db.ts";
 const NOW = new Date("2026-10-12T03:00:00Z");
 const OWNER = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const LINK_ID = "12345678-1234-4234-8234-123456789012";
+const VIEWER = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
 
 function linkRow(over: Record<string, unknown> = {}) {
   return {
@@ -60,7 +61,7 @@ test("없는·폐기·만료·소유자 비활성 링크는 모두 null 이고 �
 test("조회는 토큰 원문이 아니라 SHA-256 해시로 하고, 데이터는 링크 소유자 id 로만 읽는다", async () => {
   const { token, hash } = generateShareToken();
   const f = db(linkRow());
-  const view = await resolveShareView(f.db, token, NOW);
+  const view = await resolveShareView(f.db, token, NOW, {}, VIEWER);
   assert.ok(view);
   const lookup = f.calls.find((c) => c.text.includes("WHERE s.token_hash = $1"));
   assert.deepEqual(lookup?.params, [hash]);
@@ -77,5 +78,31 @@ test("조회는 토큰 원문이 아니라 SHA-256 해시로 하고, 데이터�
 test("열람 기록이 실패해도 보기는 성공한다", async () => {
   const { token } = generateShareToken();
   const f = db(linkRow(), { failView: true });
-  assert.ok(await resolveShareView(f.db, token, NOW));
+  assert.ok(await resolveShareView(f.db, token, NOW, {}, VIEWER));
+});
+
+test("열람 기록은 로그인한 다른 사용자의 열람만: 소유자 본인·열람자 없음은 세지 않는다 (소유자도 자기 링크는 볼 수 있다)", async () => {
+  const { token } = generateShareToken();
+  const own = db(linkRow());
+  assert.ok(await resolveShareView(own.db, token, NOW, {}, OWNER), "소유자 열람 허용");
+  assert.equal(own.calls.some((c) => c.text.includes("view_count = view_count + 1")), false);
+  const anon = db(linkRow());
+  assert.ok(await resolveShareView(anon.db, token, NOW));
+  assert.equal(anon.calls.some((c) => c.text.includes("view_count = view_count + 1")), false);
+  const other = db(linkRow());
+  await resolveShareView(other.db, token, NOW, {}, VIEWER);
+  const rec = other.calls.find((c) => c.text.includes("view_count = view_count + 1"));
+  assert.deepEqual(rec?.params, [LINK_ID], "열람자 신원은 기록에 넘기지 않는다");
+});
+
+test("열람 대상: audience 가 없거나 members 면 허용, designated(아직 미구현)나 모르는 값은 같은 null", async () => {
+  const { token } = generateShareToken();
+  assert.ok(await resolveShareView(db(linkRow({ audience: null })).db, token, NOW, {}, VIEWER));
+  assert.ok(await resolveShareView(db(linkRow({ audience: "members" })).db, token, NOW, {}, VIEWER));
+  for (const audience of ["designated", "public", ""]) {
+    assert.equal(await resolveShareView(db(linkRow({ audience })).db, token, NOW, {}, VIEWER), null, audience);
+  }
+  const f = db(linkRow());
+  await resolveShareView(f.db, token, NOW, {}, VIEWER);
+  assert.match(f.calls[0]!.text, /to_jsonb\(s\) ->> 'audience' AS audience/, "0003 적용 전에도 깨지지 않는 조회");
 });

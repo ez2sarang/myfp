@@ -22,8 +22,8 @@ const PUBLIC_EXACT: ReadonlySet<string> = new Set([
 ]);
 
 // 접두사 + "/" 경계까지 일치해야 공개
-// /s/<토큰> 은 비로그인 공유 보기다. 토큰 검증·만료·폐기 판정은 페이지(서버)가 하고, 무효면 모두 같은 404 를 돌려준다.
-const PUBLIC_PREFIXES: readonly string[] = ["/api/auth", "/_next", "/brand", "/s"];
+// 공유 보기 /s/<토큰> 은 공개가 아니다: 세션이 없으면 토큰 유효 여부와 상관없이 똑같이 로그인으로 보낸다(존재 오라클 없음).
+const PUBLIC_PREFIXES: readonly string[] = ["/api/auth", "/_next", "/brand"];
 
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f]/;

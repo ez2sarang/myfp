@@ -184,3 +184,9 @@ test("세부 목록: 금액 숨김이면 sort=amount 를 요청해도 이름순�
   const open = buildShareView(source({ fixed: items }), NOW, { sort: "amount", dir: "desc" });
   assert.deepEqual(open.summary?.details.rows.map((r) => r.amount), [9_191_919, 5_454_545, 1_212_121]);
 });
+
+test("새 공유 링크의 기본값은 금액 표시: 금액 숨기기 체크가 없으면 amounts=false", () => {
+  const r = parseShareInput({ scope_summary: "on", expires: "30" }, NOW);
+  assert.ok(r.ok);
+  assert.equal(r.value.masks.amounts, false);
+});

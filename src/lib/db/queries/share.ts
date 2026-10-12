@@ -1,5 +1,5 @@
 // 공유 링크 저장소 (서버 전용, Db 주입). 관리(목록·생성·폐기)는 WHERE user_id = <세션 사용자> 로 묶는다.
-// 공유 보기 조회는 토큰 해시로만 찾는다(사용자 id 를 입력으로 받지 않는다).
+// 공유 보기 조회는 토큰 해시로만 찾는다(링크 소유자 id 를 입력으로 받지 않는다). 열람자는 로그인 사용자여야 하고 그 판정은 페이지 가드가 한다.
 import { LIMITS } from "../../finance/types.ts";
 import { normalizeMasks, normalizeScopes, type ShareInput, type ShareMasks, type ShareScope } from "../../share/options.ts";
 import { isUuid, type Db } from "../types.ts";
@@ -94,14 +94,17 @@ export interface ShareLookup {
   createdAt: Date;
   expiresAt: Date | null;
   revokedAt: Date | null;
+  /** 열람 대상 구분 (0003 마이그레이션 전에는 열이 없어 null = members 로 본다) */
+  audience: string | null;
 }
 
-/** 토큰 해시로 공유 링크를 찾는다. 상태 판정(만료·폐기·소유자 상태)은 호출하는 쪽이 한다. */
+/** 토큰 해시로 공유 링크를 찾는다. 상태 판정(만료·폐기·소유자 상태·열람 대상)은 호출하는 쪽이 한다. */
 export async function findShareByTokenHash(db: Db, tokenHash: string): Promise<ShareLookup | null> {
   if (!/^[0-9a-f]{64}$/.test(tokenHash)) return null;
-  const res = await db.query<RawShare & { owner_id: string; owner_status: string }>(
+  // audience 는 0003 마이그레이션이 적용되기 전에도 쿼리가 깨지지 않게 행 JSON 에서 읽는다(열이 없으면 null).
+  const res = await db.query<RawShare & { owner_id: string; owner_status: string; audience?: string | null }>(
     `SELECT s.id::text AS id, s.label, s.scopes, s.masks, s.created_at, s.expires_at, s.revoked_at, s.view_count, s.last_viewed_at,
-            s.user_id::text AS owner_id, u.status AS owner_status
+            s.user_id::text AS owner_id, u.status AS owner_status, to_jsonb(s) ->> 'audience' AS audience
        FROM myfp.share_links s JOIN myfp.users u ON u.id = s.user_id
       WHERE s.token_hash = $1`,
     [tokenHash],
@@ -117,6 +120,7 @@ export async function findShareByTokenHash(db: Db, tokenHash: string): Promise<S
     createdAt: r.created_at,
     expiresAt: r.expires_at,
     revokedAt: r.revoked_at,
+    audience: r.audience ?? null,
   };
 }
 

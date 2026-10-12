@@ -17,8 +17,6 @@ test("공개 허용 목록: 정확히 일치하는 경로만 공개", () => {
     "/_next/image",
     "/privacy",
     "/terms",
-    "/s/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcd", // scan-public: allow (가짜 시험 값)
-    "/s/anything",
     "/robots.txt",
     "/sitemap.xml",
     "/favicon.ico",
@@ -30,7 +28,7 @@ test("공개 허용 목록: 정확히 일치하는 경로만 공개", () => {
 });
 
 test("보호 경로: 페이지는 보호(redirect), /api 는 보호(401)", () => {
-  for (const p of ["/app", "/app/fixed", "/app/assets", "/app/share", "/app/settings", "/app/pending", "/app/export/fixed", "/admin", "/admin/users", "/s", "/legal"]) {
+  for (const p of ["/app", "/app/fixed", "/app/assets", "/app/share", "/app/settings", "/app/pending", "/app/export/fixed", "/admin", "/admin/users", "/s", "/s/anything", "/legal"]) {
     assert.equal(classifyPath(p), "protected-page", p);
   }
   for (const p of ["/api/admin/users", "/api/anything", "/api", "/api/healthz", "/api/health/x"]) {
@@ -130,4 +128,13 @@ test("정규화: 인코딩을 풀고 끝 슬래시를 제거, 의심 형태는 n
 
 test("정상 인코딩 경로(터보팩 청크 이름)는 공개 접두사 아래에서 그대로 공개", () => {
   assert.equal(classifyPath("/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client.js"), "public");
+});
+
+test("공유 보기 /s/<토큰> 은 공개가 아니다: 세션이 없으면 토큰 형식·유효 여부와 상관없이 같은 방식으로 로그인 이동(돌아올 주소 포함)", async () => {
+  const valid = `/s/${"A".repeat(21)}${"b".repeat(22)}`;
+  for (const p of [valid, "/s/invalid", "/s/x"]) {
+    assert.equal(classifyPath(p), "protected-page", p);
+    assert.deepEqual(await decideProxy(p, "", async () => false), { action: "login", callback: p }, p);
+    assert.deepEqual(await decideProxy(p, "", async () => true), { action: "next" }, p);
+  }
 });

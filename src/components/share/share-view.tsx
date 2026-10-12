@@ -18,7 +18,7 @@ const HIDDEN = "비공개";
 const money = (value: number | null | undefined): string => (value === null || value === undefined ? HIDDEN : formatKRW(value));
 
 // 공유 보기 화면. 입력은 서버에서 가림을 적용한 ShareView 뿐이다(숨긴 값은 애초에 없다).
-export function ShareViewScreen({ view, basePath }: { view: ShareView; basePath: string }) {
+export function ShareViewScreen({ view, basePath, pendingViewer = false }: { view: ShareView; basePath: string; pendingViewer?: boolean }) {
   const hideAmounts = view.masks.amounts;
   // 두 세부 목록의 상태를 서로 보존한다 (고정지출: sort·dir·cat, 자산: asort·adir·acat).
   const fq = view.summary?.details.query;
@@ -33,7 +33,7 @@ export function ShareViewScreen({ view, basePath }: { view: ShareView; basePath:
           <span className="text-band-muted">
             생성 {formatDate(view.createdOn)} · {view.expiresOn ? `만료 ${formatDate(view.expiresOn)}` : "만료 없음"}
           </span>
-          <span className="text-band-muted">이 링크는 {SITE_NAME} 로 만든 공유 보기입니다.</span>
+          <span className="text-band-muted">이 링크는 {SITE_NAME} 에 가입한 사람만 열 수 있는 공유 보기입니다.</span>
         </div>
       </div>
       <header className="wrap flex items-center gap-2 py-5">
@@ -42,6 +42,11 @@ export function ShareViewScreen({ view, basePath }: { view: ShareView; basePath:
         <span className="ml-2 text-sm text-muted">공유된 재무 요약</span>
       </header>
       <main id="main" className="wrap flex flex-col gap-6 pb-16">
+        {pendingViewer ? (
+          <p role="note" className="rounded-md border border-line bg-info-bg px-4 py-3 text-sm text-info-ink">
+            승인 전이라 내 공간(고정지출·자산 관리)은 아직 사용할 수 없고 공유 보기만 열 수 있습니다.
+          </p>
+        ) : null}
         {hideAmounts ? <p className="text-sm text-muted">공유한 사람이 금액을 숨겼습니다. 금액·합계·비중과 차트 없이 항목 정보만 보입니다.</p> : null}
 
         {view.summary ? (

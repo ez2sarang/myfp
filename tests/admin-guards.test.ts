@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checkStatusChange } from "../src/lib/admin/guards.ts";
-import { decideGate, isActiveAdmin } from "../src/lib/auth-core/gate.ts";
+import { decideGate, decideShareAccess, isActiveAdmin } from "../src/lib/auth-core/gate.ts";
+import { buildLoginUrl } from "../src/lib/auth-core/callback-url.ts";
 
 const A = "a";
 const B = "b";
@@ -34,4 +35,19 @@ test("관문: 비로그인→login, 대기→pending, 차단→blocked, 활성�
   assert.equal(isActiveAdmin({ status: "pending", role: "admin" }), false);
   assert.equal(isActiveAdmin({ status: "active", role: "member" }), false);
   assert.equal(isActiveAdmin(null), false);
+});
+
+test("공유 보기 열람: 비로그인→login, blocked→blocked, active·pending→ok. /app 관문은 그대로 pending 을 막는다", () => {
+  assert.equal(decideShareAccess(null), "login");
+  assert.equal(decideShareAccess({ status: "blocked" }), "blocked");
+  assert.equal(decideShareAccess({ status: "pending" }), "ok");
+  assert.equal(decideShareAccess({ status: "active" }), "ok");
+  assert.equal(decideGate({ status: "pending" }), "pending", "공유 보기 허용이 /app 판정을 바꾸지 않는다");
+});
+
+test("로그인 뒤 공유 주소로 복귀: callbackUrl 은 /s/<토큰> 상대 경로, 이상한 토큰은 돌아올 주소를 붙이지 않는다", () => {
+  const token = `${"A".repeat(21)}${"b".repeat(22)}`;
+  assert.equal(buildLoginUrl(`/s/${token}`), `/login?callbackUrl=%2Fs%2F${token}`);
+  assert.equal(buildLoginUrl("/s/..\\evil"), "/login");
+  assert.equal(buildLoginUrl("//evil.example/s/x"), "/login");
 });
