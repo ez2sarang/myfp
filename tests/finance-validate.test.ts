@@ -185,3 +185,35 @@ test("이번 달 남은 납부액: 오늘 포함 ~ 이달 말일, 다음 달 1�
   assert.deepEqual(remainingThisMonth(items, "2026-10-31"), { remainingThisMonth: 4_000, remainingThisMonthCount: 1 }, "말일 당일");
   assert.deepEqual(remainingThisMonth([fx({ amount: 5, billingDay: 31 })], "2027-02-01"), { remainingThisMonth: 5, remainingThisMonthCount: 1 }, "2월 말일");
 });
+
+test("stripInvisible: 한 번 훑기로 많은 ZWJ 도 같은 규칙(이모지 사이만 유지, 직전 변형 선택자·피부색은 건너뜀)", () => {
+  const family = "\u{1F469}" + "\u{200D}\u{1F469}".repeat(25_000);
+  assert.equal(stripInvisible(family), family);
+  assert.equal(stripInvisible("가\u{200D}".repeat(25_000)), "가".repeat(25_000));
+  assert.equal(stripInvisible("\u{200D}".repeat(50_000)), "");
+  assert.equal(stripInvisible("\u{1F469}\u{200D}\u{200D}\u{1F4BB}"), "\u{1F469}\u{1F4BB}", "연속 ZWJ 는 이모지 사이가 아니다");
+  assert.equal(stripInvisible("\u{200D}\u{1F469}\u{200D}"), "\u{1F469}", "맨 앞·맨 끝 ZWJ");
+  assert.equal(stripInvisible("가\u{200D}\u{1F4BB}"), "가\u{1F4BB}");
+  assert.equal(stripInvisible("\u{1F469}\u{200D}가"), "\u{1F469}가");
+  assert.equal(stripInvisible("\u{1F469}\u{1F3FD}\u{FE0F}\u{200D}\u{1F4BB}"), "\u{1F469}\u{1F3FD}\u{FE0F}\u{1F4BB}", "건너뛰는 꼬리는 한 칸뿐");
+});
+
+test("원문 길이 상한: max×4 까지는 정리하고, 넘으면 자르지 않고 '너무 김'(undefined)으로 거부", () => {
+  assert.equal(cleanText("가" + "\u{200B}".repeat(39), 10), "가", "40자 = 10×4");
+  assert.equal(cleanText("가" + "\u{200B}".repeat(40), 10), undefined, "41자");
+  assert.equal(cleanText("가" + "\u{200D}".repeat(50_000), 100), undefined, "ZWJ 5만 개");
+  const fixed = parseFixedInput({ name: "가" + "\u{200B}".repeat(400), category: "telecom", amount: "1000" }, "2026-10-12");
+  assert.equal(fixed.ok, false);
+  if (!fixed.ok) assert.equal(fixed.errors.name, "이름은 100자 이하로 입력해 주세요.");
+});
+
+test("NFC: 조합형·완성형 '엄마'가 같은 값, 보이지 않는 문자를 지운 뒤 붙게 된 자모도 합쳐진다", () => {
+  const composed = "\u{C5C4}\u{B9C8}";
+  assert.equal(cleanText("\u{110B}\u{1165}\u{11B7}\u{1106}\u{1161}", 100), composed);
+  assert.equal(cleanText("\u{110B}\u{200B}\u{1165}\u{11B7}\u{1106}\u{2060}\u{1161}", 100), composed);
+  assert.equal(cleanText("e\u{0301}", 100), "\u{00E9}");
+  const a = parseFixedInput({ name: "\u{110B}\u{1165}\u{11B7}\u{1106}\u{1161} 통신", category: "telecom", amount: "1000" }, "2026-10-12");
+  const b = parseFixedInput({ name: `${composed} 통신`, category: "telecom", amount: "1000" }, "2026-10-12");
+  assert.ok(a.ok && b.ok);
+  if (a.ok && b.ok) assert.equal(a.value.name, b.value.name);
+});

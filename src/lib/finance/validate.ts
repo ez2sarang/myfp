@@ -29,22 +29,42 @@ const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 
 // 보이지 않는 문자: 서식 문자(\p{Cf} — 폭 없는 공백·방향 표시·BOM·소프트 하이픈·태그 문자 U+E0000–E007F 포함)와
 // 한글 채움 문자(U+3164·U+115F·U+1160·U+FFA0). 이름이 비어 보이거나 같은 이름이 달라 보이는 것을 막는다.
-const INVISIBLE = /[\p{Cf}\u3164\u115F\u1160\uFFA0]/gu;
-// 이모지 사이의 ZWJ(U+200D)는 조합(예: \u{1F469}\u200D\u{1F4BB})을 이루므로 남긴다. 왼쪽 이모지 뒤의 변형 선택자·피부색은 건너뛴다.
-const EMOJI_BEFORE = /\p{Extended_Pictographic}[\u{FE0F}\u{1F3FB}-\u{1F3FF}]?$/u;
-const EMOJI_AFTER = /^\p{Extended_Pictographic}/u;
+const INVISIBLE = /^[\p{Cf}\u{3164}\u{115F}\u{1160}\u{FFA0}]$/u;
+const PICTOGRAPHIC = /^\p{Extended_Pictographic}$/u;
+/** 이모지 뒤에 붙는 변형 선택자·피부색 */
+const EMOJI_TAIL = /^[\u{FE0F}\u{1F3FB}-\u{1F3FF}]$/u;
 
-/** 보이지 않는 문자를 지운다(거부하지 않음). 이모지 사이의 ZWJ 만 남긴다 */
+/** 보이지 않는 문자를 지운다(거부하지 않음). 이모지 사이의 ZWJ(U+200D, 이모지 조합)만 남긴다.
+ *  코드포인트를 한 번만 훑고, ZWJ 는 직전(변형 선택자·피부색이면 한 칸 더 앞)과 직후 코드포인트만 본다. */
 export function stripInvisible(text: string): string {
-  return text.replace(INVISIBLE, (ch: string, offset: number, whole: string) =>
-    ch === "\u200D" && EMOJI_BEFORE.test(whole.slice(0, offset)) && EMOJI_AFTER.test(whole.slice(offset + 1)) ? ch : "",
-  );
+  const cps = Array.from(text);
+  const out: string[] = [];
+  for (let i = 0; i < cps.length; i += 1) {
+    const ch = cps[i] as string;
+    if (!INVISIBLE.test(ch)) {
+      out.push(ch);
+      continue;
+    }
+    if (ch !== "\u{200D}") continue;
+    let before = i - 1;
+    if (before >= 0 && EMOJI_TAIL.test(cps[before] as string)) before -= 1;
+    const after = cps[i + 1];
+    if (before >= 0 && PICTOGRAPHIC.test(cps[before] as string) && after !== undefined && PICTOGRAPHIC.test(after)) out.push(ch);
+  }
+  return out.join("");
 }
 
-/** 앞뒤 공백 제거, 제어 문자·보이지 않는 문자 제거. 비면 null. 최대 길이를 넘으면 오류 표시용으로 undefined. */
+/** 원문 길이 상한 배수: 이보다 길면 정리하지 않고 '너무 김'으로 거부한다(자르면 사용자 값이 조용히 바뀌므로 자르지 않는다) */
+export const RAW_LENGTH_FACTOR = 4;
+
+/**
+ * 앞뒤 공백 제거, 제어 문자·보이지 않는 문자 제거, NFC 정규화. 비면 null. 최대 길이를 넘으면 오류 표시용으로 undefined.
+ * 순서: 원문 길이 상한(max × 4) → 제어·보이지 않는 문자 제거 → NFC(제거로 붙게 된 한글 자모·결합 문자도 합쳐진다) → 공백 정리 → 길이.
+ */
 export function cleanText(raw: string | undefined, max: number): string | null | undefined {
   if (typeof raw !== "string") return null;
-  const text = stripInvisible(raw.replace(CONTROL, "")).trim();
+  if (raw.length > max * RAW_LENGTH_FACTOR) return undefined;
+  const text = stripInvisible(raw.replace(CONTROL, "")).normalize("NFC").trim();
   if (text.length === 0) return null;
   return text.length > max ? undefined : text;
 }

@@ -440,7 +440,11 @@ function CandidateRow({
         <Field id={`${id}-name`} label="이름" hint={mark.name ? `인식: ${row.nameHint} (손글씨는 직접 입력해 주세요)` : undefined}>
           <Input id={`${id}-name`} value={row.name} placeholder={row.nameHint} maxLength={100} onChange={(e) => onChange({ name: e.currentTarget.value })} className={cn(mark.name && warn)} />
         </Field>
-        <Field id={`${id}-date`} label={DATE_LABELS[row.target]}>
+        <Field
+          id={`${id}-date`}
+          label={DATE_LABELS[row.target]}
+          hint={row.target === "asset" || row.target === "liability" ? "기준일은 오늘(서울 기준)까지 고를 수 있습니다." : undefined}
+        >
           <Input id={`${id}-date`} type="date" value={row.date} onChange={(e) => onChange({ date: e.currentTarget.value })} className={cn(mark.date && warn)} />
         </Field>
         <Field id={`${id}-amount`} label="금액(원)" error={error}>
