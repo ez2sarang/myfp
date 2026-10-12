@@ -6,22 +6,26 @@
 //
 // 산출물 위치: 어댑터가 불변 정적 자산(supportsImmutableAssets)을 켜면 청크가 <distDir>/static/immutable/chunks 로 나가고
 // /_next/static/immutable/chunks/… 로 서빙된다(Vercel 빌드). 그래서 후보 폴더를 차례로 찾는다:
-//   인자 → <distDir>/static/chunks → <distDir>/static/immutable/chunks → .vercel/output/static/_next/static/{chunks,immutable/chunks}
-//   → 작업 폴더 아래 4단계까지(node_modules·src·.git 제외) turbopack-worker-*.js 가 있는 폴더.
+//   인자 → <distDir>/static/chunks → <distDir>/static/immutable/chunks → .vercel/output/static/_next/static/{chunks,immutable/chunks}.
+// 이 네 곳(표준 위치)에 없으면 <distDir>·.vercel/output 아래만 6단계까지(심볼릭 링크는 따라가지 않고 node_modules 제외) 더 찾되,
+// 거기서 보인 진입 파일은 「추정 위치」로 진단에만 적고 승인하지 않는다(위치가 바뀌었으면 후보와 규칙 경로를 함께 고친다).
 // 못 찾거나, 찾은 진입 파일의 서빙 경로·이름이 헤더 규칙과 맞지 않으면 어느 환경이든 실패한다(exit 1, 보안 가드라 건너뛰지 않는다).
 // 실패하면 찾아본 곳과 .next·.vercel/output 최상위 목록(최대 50줄)을 진단으로 남긴다. 실패한 Vercel 빌드는 승격되지 않아 운영은 그대로다.
 // 불변 자산 빌드는 로컬에서 `npm run build:vercel-like`(scripts/dev/immutable-assets-adapter.mjs)로 재현한다.
-// 사용: node scripts/check-ocr-worker.mjs [청크 폴더] [소스 폴더]. CHECK_OCR_ROOT 로 산출물을 찾을 작업 폴더를 바꿀 수 있다(시험용).
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+// 사용: node scripts/check-ocr-worker.mjs [청크 폴더] [소스 폴더] [--root=<작업 폴더>]. --root 는 시험용이고, 환경변수로는 위치를 바꿀 수 없다.
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import nextConfig from "../next.config.ts";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
-const root = path.resolve(process.env.CHECK_OCR_ROOT ?? repoRoot);
-const explicitDir = process.argv[2] ? path.resolve(process.argv[2]) : null;
-const srcDir = path.resolve(process.argv[3] ?? path.join(repoRoot, "src"));
+const rootArg = process.argv.slice(2).find((a) => a.startsWith("--root="));
+const [chunksArg, srcArg] = process.argv.slice(2).filter((a) => a !== rootArg);
+const root = path.resolve(rootArg ? rootArg.slice("--root=".length) : repoRoot);
+const explicitDir = chunksArg ? path.resolve(chunksArg) : null;
+const srcDir = path.resolve(srcArg ?? path.join(repoRoot, "src"));
 const ENTRY = /^turbopack-worker-.+\.js$/;
 const DIAGNOSTIC_LINES = 50;
+const SEARCH_DEPTH = 6;
 
 const rel = (p) => path.relative(root, p) || ".";
 function fail(message) {
@@ -57,17 +61,19 @@ function workerFilesIn(dir) {
   }
 }
 
+/** 표준 위치 밖에서 보이는 진입 파일(추정 위치, 진단 전용). Dirent 는 lstat 기준이라 심볼릭 링크는 디렉터리로 보지 않아 따라가지 않는다 */
 function deepSearch(dir, depth, out) {
-  if (depth > 4) return out;
+  if (depth > SEARCH_DEPTH) return out;
   let names = [];
   try {
+    if (lstatSync(dir).isSymbolicLink()) return out;
     names = readdirSync(dir, { withFileTypes: true });
   } catch {
     return out;
   }
-  if (names.some((d) => d.isFile() && ENTRY.test(d.name))) out.push(dir);
   for (const d of names) {
-    if (d.isDirectory() && !["node_modules", "src", ".git"].includes(d.name)) deepSearch(path.join(dir, d.name), depth + 1, out);
+    if (d.isFile() && ENTRY.test(d.name)) out.push(path.join(dir, d.name));
+    else if (d.isDirectory() && d.name !== "node_modules") deepSearch(path.join(dir, d.name), depth + 1, out);
   }
   return out;
 }
@@ -82,12 +88,13 @@ const candidates = explicitDir
       path.join(vercelStatic, "chunks"),
       path.join(vercelStatic, "immutable/chunks"),
     ];
+const searchRoots = [distDir, path.join(root, ".vercel/output")];
 let chunksDir = candidates.find((dir) => workerFilesIn(dir).length > 0) ?? null;
-if (!chunksDir && !explicitDir) chunksDir = deepSearch(root, 0, []).find((dir) => !candidates.includes(dir)) ?? null;
 
 function diagnostics() {
+  // 환경변수는 어느 빌드였는지 알리는 참고일 뿐 위치·판정에는 쓰지 않는다
   const lines = [`  VERCEL 환경변수: ${process.env.VERCEL ? "있음" : "없음"}, NEXT_ADAPTER_PATH: ${process.env.NEXT_ADAPTER_PATH ? "있음" : "없음"}`];
-  for (const dir of [distDir, path.join(root, ".vercel/output")]) {
+  for (const dir of searchRoots) {
     let names = [];
     try {
       names = readdirSync(dir);
@@ -102,8 +109,16 @@ function diagnostics() {
 }
 
 if (!chunksDir || !servedBase(chunksDir)) {
-  const tried = [...candidates, ...(explicitDir ? [] : ["(작업 폴더 아래 4단계 탐색)"])].map((c) => `  - ${c.startsWith("(") ? c : rel(c)}`).join("\n");
-  const reason = explicitDir && !existsSync(explicitDir) ? `청크 폴더가 없습니다: ${rel(explicitDir)} (next build 뒤에 실행하세요)` : "워커 진입 파일이 있는 청크 폴더를 찾지 못했습니다";
+  const guessed = explicitDir ? [] : searchRoots.flatMap((dir) => deepSearch(dir, 0, []));
+  const searched = `(${searchRoots.map(rel).join("·")} 아래 ${SEARCH_DEPTH}단계 탐색, 보여도 추정 위치로만 알림)`;
+  const tried = [...candidates, ...(explicitDir ? [] : [searched])].map((c) => `  - ${c.startsWith("(") ? c : rel(c)}`).join("\n");
+  const reason =
+    explicitDir && !existsSync(explicitDir)
+      ? `청크 폴더가 없습니다: ${rel(explicitDir)} (next build 뒤에 실행하세요)`
+      : guessed.length > 0
+        ? "워커 진입 파일이 표준 위치 밖에서만 보여 승인하지 않습니다. 산출물 위치가 바뀌었다면 이 스크립트의 후보와 next.config.ts 의 워커 CSP 규칙 경로를 함께 고치세요.\n" +
+          `추정 위치:\n${guessed.slice(0, 10).map((f) => `  - ${rel(f)}`).join("\n")}`
+        : "워커 진입 파일이 있는 청크 폴더를 찾지 못했습니다";
   const message = `${reason}\n찾아본 곳:\n${tried}\n진단(최상위 목록):\n${diagnostics()}`;
   if (explicitDir && existsSync(explicitDir)) chunksDir = explicitDir; // 명시한 폴더는 아래 이름 검사로 원인을 알린다
   else fail(message);

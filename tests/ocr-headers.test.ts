@@ -2,7 +2,7 @@
 // /ocr/* 자산은 불변 캐시, 그 밖의 경로는 헤더가 그대로다. 워커 진입 파일 경로가 "업로드 화면 밖 헤더 불변"의 유일한 예외다.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -141,15 +141,19 @@ function run(args: string[], env: Record<string, string | undefined>) {
   return { status: out.status, output: `${out.stdout}${out.stderr}` };
 }
 
-/** 가짜 작업 폴더(파일 경로 → 내용)에서 후보 탐색을 돌린다 */
-function checkRoot(files: Record<string, string>, vercel: boolean) {
+/** 가짜 작업 폴더(파일 경로 → 내용, 링크 경로 → 대상 경로)를 --root 로 넘겨 후보 탐색을 돌린다 */
+function checkRoot(files: Record<string, string>, vercel: boolean, { env = {}, links = {} }: { env?: Record<string, string>; links?: Record<string, string> } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "myfp-ocr-root-"));
   try {
     for (const [rel, body] of Object.entries(files)) {
       spawnSync("mkdir", ["-p", path.dirname(path.join(dir, rel))]);
       writeFileSync(path.join(dir, rel), body);
     }
-    return run([], { CHECK_OCR_ROOT: dir, VERCEL: vercel ? "1" : undefined });
+    for (const [link, target] of Object.entries(links)) {
+      spawnSync("mkdir", ["-p", path.dirname(path.join(dir, link))]);
+      symlinkSync(path.join(dir, target), path.join(dir, link));
+    }
+    return run([`--root=${dir}`], { VERCEL: vercel ? "1" : undefined, ...env });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -211,7 +215,7 @@ const builtChunks = (dir: string) => ({ [`${dir}/${WORKER_JS}`]: "w", [`${dir}/4
 test("산출물 위치를 못 찾으면 로컬·Vercel 모두 실패(보안 가드라 건너뛰지 않음), 찾아본 곳과 진단을 출력", () => {
   const local = checkRoot({ "README.md": "x" }, false);
   assert.equal(local.status, 1);
-  const order = [".next/static/chunks", ".next/static/immutable/chunks", ".vercel/output/static/_next/static/chunks", ".vercel/output/static/_next/static/immutable/chunks", "(작업 폴더 아래 4단계 탐색)"];
+  const order = [".next/static/chunks", ".next/static/immutable/chunks", ".vercel/output/static/_next/static/chunks", ".vercel/output/static/_next/static/immutable/chunks", "(.next·.vercel/output 아래 6단계 탐색"];
   const positions = order.map((c) => local.output.indexOf(c));
   assert.ok(positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1]!)), JSON.stringify(positions));
   assert.match(local.output, /진단\(최상위 목록\)/);
@@ -231,18 +235,71 @@ test("산출물을 찾으면 Vercel 에서도 같은 검사: 불변 경로(immut
   assert.match(orphan.output, /참조하는 청크가 없습니다/);
 });
 
-test("후보 순서: .next/static/chunks → immutable → .vercel/output → 4단계 탐색(node_modules 제외)", () => {
+const STANDARD = [
+  [".next/static/chunks", "/_next/static/chunks"],
+  [".next/static/immutable/chunks", "/_next/static/immutable/chunks"],
+  [".vercel/output/static/_next/static/chunks", "/_next/static/chunks"],
+  [".vercel/output/static/_next/static/immutable/chunks", "/_next/static/immutable/chunks"],
+] as const;
+const APPROVED = /가 워커 CSP 규칙과 맞고/;
+
+test("후보 순서: 표준 위치 네 곳은 통과하고, .next/static/chunks 가 먼저", () => {
+  for (const [dir, base] of STANDARD) {
+    const out = checkRoot(builtChunks(dir), false);
+    assert.equal(out.status, 0, `${dir}: ${out.output}`);
+    assert.ok(out.output.includes(`${dir}/${WORKER_JS} (${base})`), out.output);
+  }
   const both = checkRoot({ ...builtChunks(".next/static/chunks"), ...builtChunks(".next/static/immutable/chunks") }, false);
   assert.equal(both.status, 0, both.output);
   assert.match(both.output, /\.next\/static\/chunks\/turbopack-worker-abc123\.js \(\/_next\/static\/chunks\)/);
-  const vercelOutput = checkRoot(builtChunks(".vercel/output/static/_next/static/immutable/chunks"), false);
-  assert.equal(vercelOutput.status, 0, vercelOutput.output);
-  assert.match(vercelOutput.output, /\.vercel\/output\/static\/_next\/static\/immutable\/chunks/);
-  const deep = checkRoot(builtChunks("custom-dist/static/immutable/chunks"), false);
-  assert.equal(deep.status, 0, deep.output);
-  assert.match(deep.output, /custom-dist\/static\/immutable\/chunks/);
-  const ignored = checkRoot(builtChunks("node_modules/pkg/static/chunks"), false);
-  assert.equal(ignored.status, 1, "node_modules 안은 보지 않는다");
+});
+
+test("표준 위치 밖 진입 파일은 승인하지 않는다: .next·.vercel/output 안이면 「추정 위치」로 알리고 실패, 그 밖(저장소의 우연한 chunks 폴더)은 보지 않는다", () => {
+  for (const dir of [".next/static/weird/chunks", ".vercel/output/static/_next/static/x/chunks"]) {
+    const out = checkRoot(builtChunks(dir), false);
+    assert.equal(out.status, 1, out.output);
+    assert.match(out.output, /승인하지 않습니다/);
+    assert.ok(out.output.includes(`추정 위치:\n  - ${dir}/${WORKER_JS}`), out.output);
+    assert.doesNotMatch(out.output, APPROVED);
+  }
+  for (const dir of ["custom-dist/static/immutable/chunks", "src/x/chunks", "public/static/chunks", "node_modules/pkg/static/chunks", ".next/node_modules/pkg/static/chunks"]) {
+    const out = checkRoot(builtChunks(dir), false);
+    assert.equal(out.status, 1, `${dir}: ${out.output}`);
+    assert.match(out.output, /찾지 못했습니다/);
+    assert.doesNotMatch(out.output, /추정 위치:\n|가 워커 CSP 규칙과 맞고/);
+  }
+});
+
+test("표준 위치 밖 탐색은 심볼릭 링크를 따라가지 않는다", () => {
+  const elsewhere = builtChunks("elsewhere/static/chunks");
+  const nested = checkRoot(elsewhere, false, { links: { ".next/linked": "elsewhere" } });
+  assert.equal(nested.status, 1, nested.output);
+  assert.doesNotMatch(nested.output, /추정 위치:\n|가 워커 CSP 규칙과 맞고/);
+  const base = checkRoot(builtChunks("elsewhere/weird/chunks"), false, { links: { ".vercel/output": "elsewhere" } });
+  assert.equal(base.status, 1, base.output);
+  assert.doesNotMatch(base.output, /추정 위치:\n|가 워커 CSP 규칙과 맞고/);
+});
+
+test("환경변수로는 산출물 위치를 바꿀 수 없다(CHECK_OCR_ROOT 는 더 이상 읽지 않음)", () => {
+  const built = mkdtempSync(path.join(tmpdir(), "myfp-ocr-built-"));
+  try {
+    for (const [rel, body] of Object.entries(builtChunks(".next/static/chunks"))) {
+      spawnSync("mkdir", ["-p", path.dirname(path.join(built, rel))]);
+      writeFileSync(path.join(built, rel), body);
+    }
+    const env = { CHECK_OCR_ROOT: built, NEXT_ADAPTER_PATH: path.join(built, "adapter.mjs") };
+    const empty = checkRoot({ "README.md": "x" }, true, { env });
+    assert.equal(empty.status, 1, empty.output);
+    assert.doesNotMatch(empty.output, APPROVED);
+    assert.ok(!empty.output.includes(built), empty.output);
+    for (const [dir, base] of STANDARD) {
+      const out = checkRoot(builtChunks(dir), true, { env });
+      assert.equal(out.status, 0, `${dir}: ${out.output}`);
+      assert.ok(out.output.includes(`${dir}/${WORKER_JS} (${base})`), out.output);
+    }
+  } finally {
+    rmSync(built, { recursive: true, force: true });
+  }
 });
 
 test("진단 출력은 최대 50줄", () => {
