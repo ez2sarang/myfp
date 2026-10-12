@@ -4,6 +4,7 @@
 // 실패해도 보기를 막지 않는다. 열람자 신원은 기록하지 않는다.
 import { listBalances } from "../db/queries/balance.ts";
 import { listFixed } from "../db/queries/fixed.ts";
+import { listOverrides, listPlanned } from "../db/queries/monthly.ts";
 import { findShareByTokenHash, recordShareView } from "../db/queries/share.ts";
 import type { Db } from "../db/types.ts";
 import { hashShareToken, isWellFormedToken, shareLinkState } from "./token.ts";
@@ -24,9 +25,14 @@ export async function resolveShareView(
   if (!link || link.ownerStatus !== "active" || shareLinkState(link, now) !== "active") return null;
   // 지정 회원 공유(designated)는 아직 구현하지 않았다: 만나면 열람을 거부한다(members 와 열이 없는 경우만 허용).
   if (link.audience !== null && link.audience !== "members") return null;
-  const [fixed, balances] = await Promise.all([
-    link.scopes.includes("summary") || link.scopes.includes("fixed") ? listFixed(db, link.ownerId) : Promise.resolve([]),
+  // 저장된 기간이 어긋나면(형식·순서·12개월 초과) 다른 실패와 똑같이 열지 않는다.
+  if (!link.period) return null;
+  const needFixed = link.scopes.includes("summary") || link.scopes.includes("fixed");
+  const [fixed, balances, overrides, planned] = await Promise.all([
+    needFixed ? listFixed(db, link.ownerId) : Promise.resolve([]),
     link.scopes.includes("balances") ? listBalances(db, link.ownerId) : Promise.resolve([]),
+    needFixed ? listOverrides(db, link.ownerId) : Promise.resolve([]),
+    link.scopes.includes("summary") ? listPlanned(db, link.ownerId) : Promise.resolve([]),
   ]);
   const listInteraction = LIST_QUERY_KEYS.some((k) => params[k] !== undefined);
   if (viewerId !== null && viewerId !== link.ownerId && !listInteraction) {
@@ -36,5 +42,9 @@ export async function resolveShareView(
       // 열람 기록 실패는 무시한다
     }
   }
-  return buildShareView({ scopes: link.scopes, masks: link.masks, createdAt: link.createdAt, expiresAt: link.expiresAt, fixed, balances }, now, params);
+  return buildShareView(
+    { scopes: link.scopes, masks: link.masks, createdAt: link.createdAt, expiresAt: link.expiresAt, fixed, balances, period: link.period, overrides, planned },
+    now,
+    params,
+  );
 }

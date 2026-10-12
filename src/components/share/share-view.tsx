@@ -5,8 +5,9 @@ import { CompareBarChart } from "@/components/charts/compare-bar-chart";
 import { DonutChart } from "@/components/charts/donut-chart";
 import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
 import { AssetDetailCard } from "@/components/detail/asset-detail-card";
-import { FixedDetailCard } from "@/components/detail/fixed-detail-card";
-import { listHref } from "@/lib/finance/detail-list";
+import { ListControls } from "@/components/detail/list-controls";
+import { Badge } from "@/components/ui/badge";
+import { SORT_LABELS, listHref } from "@/lib/finance/detail-list";
 import { Stat } from "@/components/shared/stat";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -49,6 +50,7 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
           <span className="num text-band-muted">
             생성 {formatDate(view.createdOn)} · {view.expiresOn ? `만료 ${formatDate(view.expiresOn)}` : "만료 없음"}
           </span>
+          <span className="text-band-muted">기간 {view.period.label}</span>
           <span className="text-band-muted">이 링크는 {SITE_NAME} 에 가입한 사람만 열 수 있는 공유 보기입니다.</span>
         </div>
       </div>
@@ -78,50 +80,94 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
 
         {view.summary ? (
           <section aria-labelledby="share-summary" className="flex flex-col gap-4">
-            <SectionTitle id="share-summary">요약</SectionTitle>
+            <SectionTitle id="share-summary">요약 · {view.period.label}</SectionTitle>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Stat accent label="월 고정지출" value={money(view.summary.monthlyTotal)} hint={`활성 ${view.summary.activeCount}건`} />
-              <Stat label="이번 달 남은 납부액" value={money(view.summary.remainingThisMonth)} hint={`이달 말까지 ${view.summary.remainingThisMonthCount}건`} />
-              <Stat label="다음 30일 납부" value={`${view.summary.upcoming.length}건`} />
+              <Stat
+                accent
+                label={view.period.months.length > 1 ? "기간 지출 합계" : "이 달 지출 합계"}
+                value={money(view.summary.total)}
+                hint={`고정 ${money(view.summary.fixedTotal)} · 예정·일회성 ${money(view.summary.plannedTotal)}`}
+              />
+              {view.summary.current ? (
+                <Stat
+                  label="이번 달 남은 납부액"
+                  value={money(view.summary.current.remainingTotal)}
+                  hint={`남은 ${view.summary.current.remainingCount}건 · 납부 완료 ${view.summary.current.paidCount}건`}
+                />
+              ) : (
+                <Stat label="기간" value={view.period.months.length > 1 ? `${view.period.months.length}개월` : "한 달"} hint={view.period.label} />
+              )}
+              <Stat label="항목 수" value={`${view.summary.count}건`} hint="건너뛴 지출 제외" />
             </div>
             {view.summary.charts ? (
-              <>
-                <div className="grid items-stretch gap-4 lg:grid-cols-2">
-                  <Card className="shadow-raised lg:min-h-[36rem]">
-                    <CardHeader>
-                      <CardTitle>분류별 월 고정지출</CardTitle>
-                    </CardHeader>
-                    <CardBody className="pt-6">
-                      <DonutChart
-                        data={view.summary.charts.categories}
-                        centerLabel="월 합계"
-                        emptyText="활성 고정지출이 없습니다."
-                        activeKey={view.summary.details.query.cat}
-                        filterHrefs={Object.fromEntries(
-                          view.summary.charts.categories.items.map((d) => [
-                            d.key,
-                            listHref(basePath, "", { sort: view.summary!.details.query.sort, dir: view.summary!.details.query.dir, cat: d.key }, assetKeep, "#detail-list"),
-                          ]),
-                        )}
-                      />
-                    </CardBody>
-                  </Card>
-                  <FixedDetailCard details={view.summary.details} action={`${basePath}#detail-list`} sorts={view.summary.sorts} keep={assetKeep} fill />
-                </div>
-                <Card>
+              <div className="grid items-stretch gap-4 lg:grid-cols-2">
+                <Card className="shadow-raised lg:min-h-[36rem]">
                   <CardHeader>
-                    <CardTitle>향후 12개월 예상 지출</CardTitle>
+                    <CardTitle>분류별 지출 ({view.period.label})</CardTitle>
                   </CardHeader>
-                  <CardBody>
-                    <StackedBarChart data={view.summary.charts.projection} title="향후 12개월 월별 예상 지출" emptyText="예상 지출이 없습니다." />
+                  <CardBody className="pt-6">
+                    <DonutChart
+                      data={view.summary.charts.categories}
+                      centerLabel="기간 합계"
+                      emptyText="이 기간에 낼 지출이 없습니다."
+                      activeKey={view.summary.details.query.cat}
+                      filterHrefs={Object.fromEntries(
+                        view.summary.charts.categories.items.map((d) => [
+                          d.key,
+                          listHref(basePath, "", { sort: view.summary!.details.query.sort, dir: view.summary!.details.query.dir, cat: d.key }, assetKeep, "#detail-list"),
+                        ]),
+                      )}
+                    />
                   </CardBody>
                 </Card>
-              </>
+                <ShareOccurrenceCard view={view} basePath={basePath} keep={assetKeep} fill />
+              </div>
             ) : (
               // 금액을 숨긴 링크: 차트·비중 없이 금액 아닌 세부 목록만
-              <FixedDetailCard details={view.summary.details} action={`${basePath}#detail-list`} sorts={view.summary.sorts} keep={assetKeep} />
+              <ShareOccurrenceCard view={view} basePath={basePath} keep={assetKeep} />
             )}
+            {view.summary.charts?.months ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>월별 지출</CardTitle>
+                </CardHeader>
+                <CardBody>
+                  <StackedBarChart data={view.summary.charts.months} title="기간 월별 지출" emptyText="이 기간에 낼 지출이 없습니다." />
+                </CardBody>
+              </Card>
+            ) : null}
             <div className="grid gap-4 lg:grid-cols-2">
+              {view.summary.months.length > 1 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>달별 합계</CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    <Table containerProps={{ tabIndex: 0, role: "region", "aria-label": "달별 합계" }}>
+                      <THead>
+                        <TR>
+                          <TH>달</TH>
+                          <TH className="text-right">건수</TH>
+                          <TH className="text-right">고정</TH>
+                          <TH className="text-right">예정·일회성</TH>
+                          <TH className="text-right">합계</TH>
+                        </TR>
+                      </THead>
+                      <TBody>
+                        {view.summary.months.map((m) => (
+                          <TR key={m.month}>
+                            <TD>{m.label}</TD>
+                            <TD className="num text-right">{m.count}</TD>
+                            <TD className="num text-right">{money(m.fixed)}</TD>
+                            <TD className="num text-right">{money(m.planned)}</TD>
+                            <TD className="num text-right font-semibold">{money(m.total)}</TD>
+                          </TR>
+                        ))}
+                      </TBody>
+                    </Table>
+                  </CardBody>
+                </Card>
+              ) : null}
               <Card>
                 <CardHeader>
                   <CardTitle>분류별</CardTitle>
@@ -133,32 +179,10 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
                         <span className="font-medium">
                           {c.label} <span className="num font-normal text-muted">({c.count}건)</span>
                         </span>
-                        <span className="num shrink-0 text-right font-semibold tracking-[-0.01em]">{money(c.monthly)}</span>
+                        <span className="num shrink-0 text-right font-semibold tracking-[-0.01em]">{money(c.amount)}</span>
                       </li>
                     ))}
                   </ul>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>다음 30일 일정</CardTitle>
-                </CardHeader>
-                <CardBody>
-                  {view.summary.upcoming.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-muted">예정된 납부가 없습니다.</p>
-                  ) : (
-                    <ul className="-my-1 flex flex-col divide-y divide-line text-sm">
-                      {view.summary.upcoming.map((u, i) => (
-                        <li key={`${u.date}-${i}`} className="flex items-center justify-between gap-3 py-2.5">
-                          <span className="flex min-w-0 items-center gap-3">
-                            <span className="num w-[5.5rem] shrink-0 text-xs text-muted">{formatDate(u.date)}</span>
-                            <span className="font-medium">{u.name}</span>
-                          </span>
-                          <span className="num shrink-0 text-right font-semibold tracking-[-0.01em]">{money(u.amount)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </CardBody>
               </Card>
             </div>
@@ -204,6 +228,7 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
         {view.balances ? (
           <section aria-labelledby="share-balances" className="flex flex-col gap-3">
             <SectionTitle id="share-balances">자산·부채</SectionTitle>
+            <p className="-mt-1 text-sm text-muted">자산·부채는 기간과 상관없이 열람 시점의 현재 값입니다.</p>
             <div className="grid gap-3 sm:grid-cols-3">
               <Stat accent label="자산 합계" value={money(view.balances.assetsTotal)} />
               <Stat label="부채 합계" value={money(view.balances.liabilitiesTotal)} />
@@ -284,5 +309,67 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
         </p>
       </main>
     </div>
+  );
+}
+
+const STATE_LABEL = { paid: "납부 완료", due: "남음", planned: "예정", skipped: "건너뜀" } as const;
+
+// 기간 안 발생의 세부 목록 (정렬·분류 필터는 GET 쿼리, 기간이 두 달 이상이면 달 열을 함께 보여 준다)
+function ShareOccurrenceCard({ view, basePath, keep, fill = false }: { view: ShareView; basePath: string; keep: Record<string, string>; fill?: boolean }) {
+  const s = view.summary;
+  if (!s) return null;
+  const d = s.details;
+  const multi = view.period.months.length > 1;
+  const selected = d.categories.find((c) => c.key === d.query.cat)?.label ?? "전체";
+  return (
+    <Card id="detail-list" className={fill ? "flex scroll-mt-28 flex-col lg:h-0 lg:min-h-full" : "flex scroll-mt-28 flex-col"}>
+      <CardHeader className="flex-row items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <CardTitle>세부 항목</CardTitle>
+          <p className="text-sm text-muted">
+            <span className="font-semibold text-ink">{selected}</span> · <span className="num">{d.count}건</span>
+          </p>
+        </div>
+        {d.total !== null ? (
+          <p className="flex shrink-0 flex-col items-end text-right">
+            <span className="text-xs text-muted">합계(건너뜀 제외)</span>
+            <span className="num text-xl font-semibold tracking-[-0.02em]">{formatKRW(d.total)}</span>
+          </p>
+        ) : null}
+      </CardHeader>
+      <CardBody className="flex min-h-0 flex-1 flex-col gap-1">
+        <ListControls
+          action={`${basePath}#detail-list`}
+          sorts={s.sorts.map((k) => ({ key: k, label: SORT_LABELS[k] }))}
+          query={d.query}
+          categories={d.categories}
+          keep={keep}
+          label="세부 항목"
+        />
+        {d.rows.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted">보여 줄 항목이 없습니다.</p>
+        ) : (
+          <ol tabIndex={0} aria-label="세부 항목 목록" className="-mx-2 flex max-h-[420px] min-h-0 flex-1 flex-col divide-y divide-line overflow-y-auto overscroll-contain px-2 text-sm lg:max-h-none">
+            {d.rows.map((r, i) => (
+              <li key={`${r.month}-${r.name}-${i}`} className="flex items-start gap-3 py-3">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className={r.state === "skipped" ? "font-semibold text-muted line-through" : "font-semibold text-ink"}>{r.name}</span>
+                    {r.kind === "planned" ? <Badge tone="brand">{r.installment ? `예정 ${r.installment}` : "예정·일회성"}</Badge> : null}
+                    <Badge>{r.category}</Badge>
+                    <Badge tone={r.state === "paid" ? "positive" : r.state === "due" ? "warn" : r.state === "planned" ? "info" : "neutral"}>{STATE_LABEL[r.state]}</Badge>
+                  </span>
+                  <span className="num text-xs text-muted">
+                    {multi ? `${r.month.replace("-", ".")} · ` : ""}
+                    {r.date ? formatDate(r.date) : "납부일 미정"}
+                  </span>
+                </div>
+                {r.amount !== null ? <span className="num shrink-0 pt-0.5 text-right text-[0.95rem] font-semibold tracking-[-0.01em] text-ink">{formatKRW(r.amount)}</span> : null}
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardBody>
+    </Card>
   );
 }

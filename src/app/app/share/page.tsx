@@ -13,7 +13,7 @@ import { listShareLinks } from "@/lib/db/queries/share";
 import { seoulToday } from "@/lib/finance/dates";
 import { formatDate } from "@/lib/finance/format";
 import { LIMITS } from "@/lib/finance/types";
-import { SHARE_SCOPE_LABELS } from "@/lib/share/options";
+import { SHARE_SCOPE_LABELS, periodLabel } from "@/lib/share/options";
 import { shareLinkState } from "@/lib/share/token";
 import { requireActiveUser } from "@/lib/session";
 
@@ -43,7 +43,7 @@ export default async function SharePage() {
           <CardTitle>새 링크 만들기</CardTitle>
         </CardHeader>
         <CardBody>
-          <ShareCreateForm action={createShareAction} disabled={activeCount >= LIMITS.activeShareLinks} />
+          <ShareCreateForm action={createShareAction} disabled={activeCount >= LIMITS.activeShareLinks} thisMonth={seoulToday().slice(0, 7)} />
         </CardBody>
       </Card>
 
@@ -62,6 +62,7 @@ export default async function SharePage() {
             <TR>
               <TH>이름</TH>
               <TH>상태</TH>
+              <TH>기간</TH>
               <TH>포함</TH>
               <TH>가림</TH>
               <TH>만든 날 · 만료</TH>
@@ -81,6 +82,7 @@ export default async function SharePage() {
                   <TD>
                     <Badge tone={STATE_TONE[state]}>{STATE_LABEL[state]}</Badge>
                   </TD>
+                  <TD className="whitespace-normal text-xs">{l.period ? periodLabel(l.period) : "기간 정보 오류(열리지 않음)"}</TD>
                   <TD className="whitespace-normal text-xs">{l.scopes.map((s) => SHARE_SCOPE_LABELS[s]).join(", ") || "—"}</TD>
                   <TD className="whitespace-normal text-xs">
                     {[l.masks.amounts ? "금액" : null, l.masks.details ? "메모·기관" : null].filter(Boolean).join(", ") || "없음"}

@@ -6,6 +6,7 @@ import { createBalance, deleteBalance, getBalance, listBalances, listSnapshots, 
 import { createFixed, deleteFixed, getFixed, listFixed, setFixedActive, setFixedArchived, updateFixed } from "../src/lib/db/queries/fixed.ts";
 import { deleteAccount, deleteAllUserData } from "../src/lib/db/queries/account.ts";
 import { createShareLink, listShareLinks, revokeShareLink } from "../src/lib/db/queries/share.ts";
+import { CURRENT_PERIOD } from "../src/lib/share/options.ts";
 import type { FixedInput, BalanceInput } from "../src/lib/finance/validate.ts";
 import { fakeDb, type Call } from "./fake-db.ts";
 
@@ -81,7 +82,7 @@ test("공유 링크 관리·전체 삭제: 같은 범위 규칙", async () => {
   await deleteAllUserData(f.db, ME);
   assertScoped(f.calls, "share/account");
   const c = fakeDb(countZero);
-  const created = await createShareLink(c.db, ME, { label: "x", scopes: ["fixed"], masks: { amounts: true, details: true }, expiresAt: null }, "a".repeat(64));
+  const created = await createShareLink(c.db, ME, { label: "x", scopes: ["fixed"], masks: { amounts: true, details: true }, expiresAt: null, period: CURRENT_PERIOD }, "a".repeat(64));
   assert.equal(created.ok, true);
   assertScoped(c.calls, "share.create");
 });
@@ -104,7 +105,7 @@ test("상한: 고정지출 300·자산부채 100·사용 중 공유 링크 10 �
   const b = full("100");
   assert.deepEqual(await createBalance(b.db, ME, balanceInput), { ok: false, reason: "limit" });
   const s = full("10");
-  assert.deepEqual(await createShareLink(s.db, ME, { label: "x", scopes: ["fixed"], masks: { amounts: true, details: true }, expiresAt: null }, "a".repeat(64)), {
+  assert.deepEqual(await createShareLink(s.db, ME, { label: "x", scopes: ["fixed"], masks: { amounts: true, details: true }, expiresAt: null, period: CURRENT_PERIOD }, "a".repeat(64)), {
     ok: false,
     reason: "limit",
   });
