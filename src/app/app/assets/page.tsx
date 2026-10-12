@@ -112,9 +112,14 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
         title="자산·부채"
         description={`잔액 기준으로 기록합니다. 최대 ${LIMITS.balanceItems}건.`}
         actions={
-          <a href="#add-balance" className={buttonClass("primary", "sm", "min-h-11 sm:min-h-9")}>
-            새 자산·부채
-          </a>
+          <>
+            <Link href="/app/import/photo" className={buttonClass("secondary", "sm", "min-h-11 sm:min-h-9")}>
+              사진으로 추가
+            </Link>
+            <a href="#add-balance" className={buttonClass("primary", "sm", "min-h-11 sm:min-h-9")}>
+              새 자산·부채
+            </a>
+          </>
         }
       />
       {items.length === 0 ? (

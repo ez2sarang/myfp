@@ -75,3 +75,18 @@ export interface ImportCandidate {
   lines: number[];
   box: Point[] | null;
 }
+
+// ---------- 등록 요청 (확인 화면 → 서버 액션). 화면과 서버가 같은 목록을 쓴다 ----------
+
+export const IMPORT_MAX_ITEMS = 100;
+
+export const IMPORT_TARGETS = ["fixed", "planned", "asset", "liability"] as const;
+export type ImportTarget = (typeof IMPORT_TARGETS)[number];
+
+/** 대상별로 받는 필드. 이 밖의 필드(원문·상자·이미지·사용자 id 등)가 하나라도 있으면 서버가 그 항목을 거부한다 */
+export const IMPORT_FIELDS: Readonly<Record<ImportTarget, readonly string[]>> = {
+  fixed: ["target", "name", "amount", "category", "billingDay", "paymentMethod"],
+  planned: ["target", "name", "amount", "category", "dueDate", "count"],
+  asset: ["target", "name", "amount", "category", "asOf"],
+  liability: ["target", "name", "amount", "category", "asOf"],
+};

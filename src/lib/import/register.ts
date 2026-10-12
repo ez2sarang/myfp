@@ -9,21 +9,13 @@ import type { Db } from "../db/types.ts";
 import { parsePlannedInput, type PlannedInput } from "../finance/monthly-validate.ts";
 import { LIMITS } from "../finance/types.ts";
 import { parseBalanceInput, parseFixedInput, type BalanceInput, type FixedInput } from "../finance/validate.ts";
+import { IMPORT_FIELDS, IMPORT_MAX_ITEMS, IMPORT_TARGETS, type ImportTarget } from "./types.ts";
 
-export const IMPORT_MAX_ITEMS = 100;
+export { IMPORT_FIELDS, IMPORT_MAX_ITEMS, IMPORT_TARGETS, type ImportTarget };
+
 /** JSON 문자열 길이 상한 (항목 100건 × 넉넉한 필드 길이) */
 export const IMPORT_MAX_CHARS = 100_000;
 
-export const IMPORT_TARGETS = ["fixed", "planned", "asset", "liability"] as const;
-export type ImportTarget = (typeof IMPORT_TARGETS)[number];
-
-/** 대상별로 받는 필드. 이 밖의 필드(원문·상자·이미지·사용자 id 등)가 하나라도 있으면 그 항목은 거부한다 */
-export const IMPORT_FIELDS: Readonly<Record<ImportTarget, readonly string[]>> = {
-  fixed: ["target", "name", "amount", "category", "billingDay", "paymentMethod"],
-  planned: ["target", "name", "amount", "category", "dueDate", "count"],
-  asset: ["target", "name", "amount", "category", "asOf"],
-  liability: ["target", "name", "amount", "category", "asOf"],
-};
 const TOP_FIELDS = ["items", "private", "confirmDuplicates"];
 
 export type ImportItem =

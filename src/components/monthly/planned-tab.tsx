@@ -37,6 +37,12 @@ export function PlannedTab({
           <PlannedAddForm today={today} />
         </div>
       </details>
+      <p className="text-sm text-muted">
+        <Link href="/app/import/photo" className="inline-flex min-h-11 items-center font-semibold text-brand underline-offset-4 hover:underline">
+          사진으로 추가
+        </Link>{" "}
+        — 카드 명세서·영수증 사진에서 할부·일회성 지출을 읽어 한 번에 넣습니다.
+      </p>
 
       {planned.length === 0 ? (
         <p role="note" className="rounded-lg border border-dashed border-line-strong bg-surface-2 px-4 py-4 text-sm text-muted sm:px-5">

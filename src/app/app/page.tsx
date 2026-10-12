@@ -83,6 +83,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         eyebrow={tab === "month" ? "대시보드" : undefined}
         title={tab === "month" ? monthLabel(month) : "대시보드"}
         description={`${formatDate(today)} 기준 (서울 시간)`}
+        actions={
+          <Link href="/app/import/photo" className={buttonClass("secondary", "sm", "min-h-11 sm:min-h-9")}>
+            사진으로 추가
+          </Link>
+        }
       />
       {viewer.name === null && displayName === null ? <DisplayNameHint /> : null}
       {empty ? (
