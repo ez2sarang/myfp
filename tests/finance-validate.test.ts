@@ -1,7 +1,37 @@
 // 입력 검증·정규화 시험 (서버 액션과 시드 적재가 같은 규칙을 쓴다).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseAmount, parseBalanceInput, parseFixedInput } from "../src/lib/finance/validate.ts";
+import { cleanText, parseAmount, parseBalanceInput, parseFixedInput, stripInvisible } from "../src/lib/finance/validate.ts";
+import { parsePlannedInput } from "../src/lib/finance/monthly-validate.ts";
+
+test("이름 정리: 보이지 않는 문자는 지우고(거부 아님), 이모지 사이 ZWJ 만 남긴다", () => {
+  assert.equal(cleanText("엄마\u200B", 100), "엄마");
+  assert.equal(cleanText("\u200E가상\u00AD마트\uFEFF", 100), "가상마트", "방향 표시·소프트 하이픈·BOM");
+  assert.equal(cleanText("가상\u{E0041}\u{E007F}마트", 100), "가상마트", "태그 문자");
+  assert.equal(cleanText("가\u3164상\u115F\u1160마\uFFA0트", 100), "가상마트", "한글 채움 문자");
+  assert.equal(cleanText("가상\u200D마트", 100), "가상마트", "이모지 사이가 아닌 ZWJ");
+  assert.equal(stripInvisible("\u{1F469}\u200D\u{1F4BB}"), "\u{1F469}\u200D\u{1F4BB}", "\u{1F469}\u200D\u{1F4BB} 유지");
+  assert.equal(stripInvisible("\u2764\uFE0F\u200D\u{1F525}"), "\u2764\uFE0F\u200D\u{1F525}", "\u2764\uFE0F\u200D\u{1F525} (변형 선택자 뒤) 유지");
+  assert.equal(stripInvisible("\u{1F469}\u{1F3FD}\u200D\u{1F4BB}"), "\u{1F469}\u{1F3FD}\u200D\u{1F4BB}", "피부색 뒤 유지");
+  assert.equal(cleanText("\u200B\u3164 \u200D", 100), null, "지우고 나면 빈 이름");
+  assert.equal(cleanText("가".repeat(100) + "\u200B", 100), "가".repeat(100), "길이는 지운 뒤 잰다");
+});
+
+test("수동 폼(고정지출·자산·예정지출)도 같은 정리: 지우고 나서 비면 '이름을 입력해 주세요'", () => {
+  const invisible = "\u200B\u3164\uFEFF";
+  const fixed = parseFixedInput({ name: invisible, category: "telecom", amount: "1000" }, "2026-10-12");
+  assert.equal(fixed.ok, false);
+  if (!fixed.ok) assert.equal(fixed.errors.name, "이름을 입력해 주세요.");
+  const balance = parseBalanceInput({ kind: "asset", category: "deposit", name: invisible, amount: "1000" });
+  assert.equal(balance.ok, false);
+  if (!balance.ok) assert.equal(balance.errors.name, "이름을 입력해 주세요.");
+  const planned = parsePlannedInput({ name: invisible, category: "other", amount: "1000", dueDate: "2026-10-20" }, "2026-10-12", { allowCount: false });
+  assert.equal(planned.ok, false);
+  if (!planned.ok) assert.equal(planned.errors.name, "이름을 입력해 주세요.");
+  const ok = parseFixedInput({ name: "엄마\u200B 통신", category: "telecom", amount: "1000" }, "2026-10-12");
+  assert.ok(ok.ok);
+  if (ok.ok) assert.equal(ok.value.name, "엄마 통신");
+});
 import { remainingThisMonth, summarizeBalances, summarizeFixed, debtTimeline } from "../src/lib/finance/summary.ts";
 import type { BalanceItem, FixedExpense } from "../src/lib/finance/types.ts";
 

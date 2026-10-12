@@ -27,10 +27,24 @@ export type Validation<T> = { ok: true; value: T } | { ok: false; errors: Record
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 
-/** 앞뒤 공백 제거, 제어 문자 제거. 비면 null. 최대 길이를 넘으면 오류 표시용으로 undefined. */
+// 보이지 않는 문자: 서식 문자(\p{Cf} — 폭 없는 공백·방향 표시·BOM·소프트 하이픈·태그 문자 U+E0000–E007F 포함)와
+// 한글 채움 문자(U+3164·U+115F·U+1160·U+FFA0). 이름이 비어 보이거나 같은 이름이 달라 보이는 것을 막는다.
+const INVISIBLE = /[\p{Cf}\u3164\u115F\u1160\uFFA0]/gu;
+// 이모지 사이의 ZWJ(U+200D)는 조합(예: \u{1F469}\u200D\u{1F4BB})을 이루므로 남긴다. 왼쪽 이모지 뒤의 변형 선택자·피부색은 건너뛴다.
+const EMOJI_BEFORE = /\p{Extended_Pictographic}[\u{FE0F}\u{1F3FB}-\u{1F3FF}]?$/u;
+const EMOJI_AFTER = /^\p{Extended_Pictographic}/u;
+
+/** 보이지 않는 문자를 지운다(거부하지 않음). 이모지 사이의 ZWJ 만 남긴다 */
+export function stripInvisible(text: string): string {
+  return text.replace(INVISIBLE, (ch: string, offset: number, whole: string) =>
+    ch === "\u200D" && EMOJI_BEFORE.test(whole.slice(0, offset)) && EMOJI_AFTER.test(whole.slice(offset + 1)) ? ch : "",
+  );
+}
+
+/** 앞뒤 공백 제거, 제어 문자·보이지 않는 문자 제거. 비면 null. 최대 길이를 넘으면 오류 표시용으로 undefined. */
 export function cleanText(raw: string | undefined, max: number): string | null | undefined {
   if (typeof raw !== "string") return null;
-  const text = raw.replace(CONTROL, "").trim();
+  const text = stripInvisible(raw.replace(CONTROL, "")).trim();
   if (text.length === 0) return null;
   return text.length > max ? undefined : text;
 }

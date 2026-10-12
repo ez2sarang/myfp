@@ -1,6 +1,14 @@
 // 확인 화면의 행 상태 (순수 모듈, 화면·시험 공용): 후보 → 기본 행(대상·분류·선택), 노랑 강조, 행 → 등록 요청 JSON.
 // 기본 선택은 신뢰도 '높음'만이고, '낮음'(손글씨 포함)은 일괄 선택에서도 빠진다. 사용자가 고친 값이 최종값이다.
-import { ASSET_CATEGORIES, EXPENSE_CATEGORIES, LIABILITY_CATEGORIES, PAYMENT_METHODS } from "../finance/types.ts";
+import {
+  ASSET_CATEGORIES,
+  ASSET_CATEGORY_LABELS,
+  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_LABELS,
+  LIABILITY_CATEGORIES,
+  LIABILITY_CATEGORY_LABELS,
+  PAYMENT_METHODS,
+} from "../finance/types.ts";
 import { IMPORT_MAX_ITEMS, type ImportCandidate, type ImportTarget, type Reason } from "./types.ts";
 
 export type RowTarget = ImportTarget | "skip";
@@ -26,6 +34,13 @@ export function categoriesFor(target: RowTarget): readonly string[] {
   if (target === "liability") return LIABILITY_CATEGORIES;
   if (target === "skip") return [];
   return EXPENSE_CATEGORIES;
+}
+
+/** 대상별 분류 이름. 대상마다 표가 다르다(지출 'other' = 기타, 부채 'other' = 기타 부채 — 표를 합치면 서로 덮어쓴다) */
+export function categoryLabel(target: RowTarget, category: string): string {
+  const labels: Record<string, string> =
+    target === "asset" ? ASSET_CATEGORY_LABELS : target === "liability" ? LIABILITY_CATEGORY_LABELS : target === "skip" ? {} : EXPENSE_CATEGORY_LABELS;
+  return labels[category] ?? category;
 }
 
 /** 대상을 바꿀 때의 기본 분류 */

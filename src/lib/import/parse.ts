@@ -130,19 +130,27 @@ export function parseCardList(lines: readonly OcrLineInput[], ctx: CaptureContex
   const rowOf = new Map<number, Item[]>();
   for (const row of rows) for (const x of row) rowOf.set(x.i, row);
   const amountItems = items.filter((x) => x.cx > 0.55 * ctx.width && parseAmount(x.text)?.hasWon).sort((a, b) => a.cy - b.cy);
+  // 금액이 있는 행들: 한 금액의 묶음(아래 줄)에 다른 금액 행의 상자가 섞이지 않게 한다(이름 상자 중심이 금액보다 조금 위여도 같은 행이다)
+  const amountRows = new Set(amountItems.map((x) => rowOf.get(x.i)));
+  const inOtherAmountRow = (x: Item, own: Item[]) => {
+    const r = rowOf.get(x.i);
+    return r !== own && amountRows.has(r);
+  };
   const drafts: Draft[] = [];
   const used = new Set<number>();
 
-  // 카드 결제예정금액: 낱말이 있는 행(또는 바로 아래 행)의 금액
+  // 카드 결제예정금액: 낱말이 있는 행의 금액, 없으면 바로 아래 행이 금액만 있는 행일 때 그 금액(이름 있는 거래 행의 금액은 가져가지 않는다)
   for (const label of items.filter((x) => CARD_BILL.test(x.text))) {
     const row = rowOf.get(label.i) ?? [label];
     const sameRow = row.filter((x) => x !== label && parseAmount(x.text));
     const inLabel = amountsIn(label.text).filter((a) => a.hasWon).at(-1);
-    const next = amountItems.find((x) => x.cy > label.cy && x.cy - label.cy <= below && !used.has(x.i));
+    const nextRow = rows[rows.indexOf(row) + 1];
+    const next =
+      nextRow && nextRow.every((x) => parseAmount(x.text)) ? nextRow.find((x) => amountItems.includes(x) && x.cy - label.cy <= below && !used.has(x.i)) : undefined;
     const target = sameRow.at(-1) ?? (inLabel ? label : next);
     if (!target) continue;
     const amount = target === label ? (inLabel ?? null) : parseAmount(target.text);
-    const cardName = items.find((x) => x !== label && /카드/.test(x.text) && !CARD_BILL.test(x.text) && x.cy < label.cy + below);
+    const cardName = items.find((x) => x !== label && /카드/.test(x.text) && !CARD_BILL.test(x.text) && x.cy <= label.cy && !inOtherAmountRow(x, row));
     used.add(target.i);
     drafts.push(
       draft("card", {
@@ -161,7 +169,7 @@ export function parseCardList(lines: readonly OcrLineInput[], ctx: CaptureContex
     const row = rowOf.get(amountItem.i) ?? [amountItem];
     const nextCy = amountItems[k + 1]?.cy ?? Number.POSITIVE_INFINITY;
     const left = row.filter((x) => x.x1 <= amountItem.x0 + 2 && !parseAmount(x.text) && !parseDate(x.text, ctx.today));
-    const block = items.filter((x) => x.cy > amountItem.cy && x.cy < nextCy && x.cy - amountItem.cy <= below);
+    const block = items.filter((x) => x.cy > amountItem.cy && x.cy < nextCy && x.cy - amountItem.cy <= below && !inOtherAmountRow(x, row));
     const dateLine = block.map((x) => ({ x, d: parseDate(x.text, ctx.today) })).find((v) => v.d?.format === "ymd");
     let date: { date: string | null; time: string | null; ok: boolean } | null = dateLine?.d ? { date: dateLine.d.date, time: dateLine.d.time, ok: dateLine.d.dayInRange } : null;
     let dateSource: Draft["dateSource"] = date ? "direct" : null;

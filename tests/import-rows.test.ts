@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildCandidates } from "../src/lib/import/classify.ts";
 import { parseImportPayload } from "../src/lib/import/register.ts";
-import { canBulkSelect, defaultRow, highlights, toPayload, type RowState } from "../src/lib/import/rows.ts";
+import { canBulkSelect, categoriesFor, categoryLabel, defaultRow, highlights, toPayload, type RowState } from "../src/lib/import/rows.ts";
 import { IMPORT_FIELDS, type ImportTarget } from "../src/lib/import/types.ts";
 import { CARD_CAPTURE, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, SHOT, TODAY } from "./import-fixtures.ts";
 
@@ -72,4 +72,19 @@ test("행 → 등록 요청 거부: 고른 행 없음·금액 비숫자·이름 
   assert.deepEqual(one({ date: "" }), { ok: false, key: "0:0", message: "예정일을 입력해 주세요." });
   const many = Array.from({ length: 101 }, (_, i) => ({ ...cardRows[0]!, key: `0:${i}` }));
   assert.equal(toPayload(many, { private: false, confirmDuplicates: false }).ok, false);
+});
+
+test("분류 이름은 대상별 표에서: 지출 '기타'와 부채 '기타 부채'가 서로 덮어쓰지 않는다", () => {
+  assert.equal(categoryLabel("fixed", "other"), "기타");
+  assert.equal(categoryLabel("planned", "other"), "기타");
+  assert.equal(categoryLabel("liability", "other"), "기타 부채");
+  assert.equal(categoryLabel("asset", "other"), "기타 자산");
+  assert.equal(categoryLabel("liability", "card"), "카드");
+  assert.equal(categoryLabel("liability", "loan"), "대출");
+  assert.equal(categoryLabel("fixed", "loan"), "대출 상환");
+  assert.equal(categoryLabel("asset", "deposit"), "예금·적금");
+  // 대상별 분류 목록의 모든 값에 그 대상의 이름이 있다(분류 값 그대로 보이는 일 없음)
+  for (const target of ["fixed", "planned", "asset", "liability"] as const) {
+    for (const cat of categoriesFor(target)) assert.notEqual(categoryLabel(target, cat), cat, `${target}:${cat}`);
+  }
 });

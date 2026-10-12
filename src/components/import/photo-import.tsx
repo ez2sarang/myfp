@@ -9,7 +9,6 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { registerImportAction } from "@/lib/actions/import";
-import { ASSET_CATEGORY_LABELS, EXPENSE_CATEGORY_LABELS, LIABILITY_CATEGORY_LABELS } from "@/lib/finance/types";
 import { buildCandidates } from "@/lib/import/classify";
 import { detectLayout } from "@/lib/import/parse";
 import {
@@ -17,6 +16,7 @@ import {
   REASON_LABELS,
   canBulkSelect,
   categoriesFor,
+  categoryLabel,
   defaultCategory,
   defaultRow,
   highlights,
@@ -34,8 +34,6 @@ const MAX_BYTES = 20 * 1024 * 1024;
 const LAYOUT_LABELS: Record<Layout, string> = { card: "카드 목록", receipt: "영수증", bill: "고지서", handwriting: "손글씨" };
 const TARGET_LABELS: Record<RowTarget, string> = { fixed: "고정지출", planned: "예정·일회성", asset: "자산", liability: "부채", skip: "제외" };
 const DATE_LABELS: Record<RowTarget, string> = { fixed: "날짜(납부일)", planned: "예정일", asset: "기준일", liability: "기준일", skip: "날짜" };
-const CATEGORY_LABELS: Record<string, string> = { ...EXPENSE_CATEGORY_LABELS, ...ASSET_CATEGORY_LABELS, ...LIABILITY_CATEGORY_LABELS };
-const LIABILITY_LABEL = (c: string) => (c === "other" ? "기타 부채" : CATEGORY_LABELS[c] ?? c);
 const STATUS_LABELS = { queued: "대기", preparing: "사진 준비", loading: "모델 확인", recognizing: "글자 읽는 중", done: "완료", error: "실패", cancelled: "취소됨" } as const;
 
 type PhotoStatus = keyof typeof STATUS_LABELS;
@@ -433,7 +431,7 @@ function CandidateRow({
             <Select id={`${id}-category`} value={row.category} onChange={(e) => onChange({ category: e.currentTarget.value })}>
               {categoriesFor(row.target).map((cat) => (
                 <option key={cat} value={cat}>
-                  {row.target === "liability" ? LIABILITY_LABEL(cat) : CATEGORY_LABELS[cat] ?? cat}
+                  {categoryLabel(row.target, cat)}
                 </option>
               ))}
             </Select>

@@ -112,3 +112,39 @@ test("레이아웃 추정: 고지서 → 영수증 → 오른쪽 금액원 → �
   assert.equal(detectLayout(BILL_CAPTURE(), PHOTO), "bill");
   assert.equal(detectLayout(MEMO_CAPTURE, PHOTO), "handwriting");
 });
+
+test("카드 앱 목록: 다음 행 이름 상자가 금액 상자보다 몇 px 위·행 간격 150px 안쪽·상자 높이가 달라도 신호가 앞 행으로 넘어오지 않는다", () => {
+  // 이름 상자(높이 34)의 중심이 같은 행 금액 상자(높이 24)의 중심보다 3px 위
+  const tallRow = (y: number, name: string, amount: string, date: string) => [
+    line(name, 30, y - 8, 220, y + 26),
+    line(amount, 400, y, 540, y + 24),
+    line(date, 30, y + 34, 220, y + 52),
+  ];
+  const lines = [
+    ...tallRow(100, "가상마트", "32,000원", "2026.10.03 12:40"),
+    ...tallRow(210, "가상통신 요금", "55,000원", "2026.10.03 13:00"),
+    ...tallRow(320, "가상가전 할부 2/3회", "120,000원", "2026.10.03 14:00"),
+    ...tallRow(430, "가상서점 취소", "-9,000원", "2026.10.03 15:00"),
+  ];
+  const drafts = parseCardList(lines, SHOT);
+  assert.deepEqual(
+    drafts.map((d) => [d.name, d.installment !== null, d.cancelled, /통신/.test(d.context), /할부/.test(d.context), /취소/.test(d.context)]),
+    [
+      ["가상마트", false, false, false, false, false],
+      ["가상통신 요금", false, false, true, false, false],
+      ["가상가전 할부 2/3회", true, false, false, true, false],
+      ["가상서점 취소", false, true, false, false, true],
+    ],
+  );
+});
+
+test("카드 결제예정금액: 아래 행이 이름 있는 거래 행이면 그 금액을 카드 대금으로 가져가지 않는다, 금액만 있는 바로 아래 행은 가져간다", () => {
+  const withTransaction = [line("결제예정금액", 30, 100, 200, 130), ...row(150, "가상마트", "32,000원"), line("2026.10.03 12:40", 30, 185, 220, 205)];
+  const drafts = parseCardList(withTransaction, SHOT);
+  assert.deepEqual(drafts.map((d) => [d.role, d.name, d.amount?.value]), [["item", "가상마트", 32000]]);
+  const amountBelow = [line("가상카드", 30, 40, 200, 70), line("결제예정금액", 30, 100, 200, 130), line("1,234,000원", 380, 150, 540, 180), ...row(260, "가상마트", "32,000원")];
+  assert.deepEqual(parseCardList(amountBelow, SHOT).map((d) => [d.role, d.name, d.amount?.value]), [
+    ["total", "가상카드", 1234000],
+    ["item", "가상마트", 32000],
+  ]);
+});
