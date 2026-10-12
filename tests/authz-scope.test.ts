@@ -2,7 +2,7 @@
 // 읽기·수정·삭제가 일어나지 않는다(가짜 Db 가 "그 사용자의 행 없음"을 돌려주면 결과는 없음/실패).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createBalance, deleteBalance, getBalance, listBalances, updateBalance } from "../src/lib/db/queries/balance.ts";
+import { createBalance, deleteBalance, getBalance, listBalances, listSnapshots, updateBalance } from "../src/lib/db/queries/balance.ts";
 import { createFixed, deleteFixed, getFixed, listFixed, setFixedActive, setFixedArchived, updateFixed } from "../src/lib/db/queries/fixed.ts";
 import { deleteAllUserData } from "../src/lib/db/queries/account.ts";
 import { createShareLink, listShareLinks, revokeShareLink } from "../src/lib/db/queries/share.ts";
@@ -31,7 +31,7 @@ const balanceInput: BalanceInput = { kind: "asset", category: "cash", name: "a",
 
 /** 사용자 데이터 테이블을 건드리는 쿼리는 user_id 조건을 갖고, 그 값은 세션 사용자 id 여야 한다. */
 function assertScoped(calls: Call[], label: string) {
-  const touching = calls.filter((c) => /myfp\.(fixed_expenses|balance_items|share_links)/.test(c.text));
+  const touching = calls.filter((c) => /myfp\.(fixed_expenses|balance_items|balance_snapshots|share_links)/.test(c.text));
   assert.ok(touching.length > 0, `${label}: 쿼리가 없음`);
   for (const c of touching) {
     if (c.text.startsWith("INSERT")) {
@@ -108,4 +108,21 @@ test("상한: 고정지출 300·자산부채 100·사용 중 공유 링크 10 �
     ok: false,
     reason: "limit",
   });
+});
+
+test("순자산 스냅샷: 자산·부채를 만들거나 바꾸면 같은 사용자 범위로 그 달 스냅샷을 갱신하고, 조회도 범위가 묶인다", async () => {
+  const c = fakeDb((call) => (call.text.includes("count(*)") ? { rows: [{ n: "0" }] } : call.text.startsWith("INSERT INTO myfp.balance_items") ? { rows: [{ id: OTHER_ITEM }] } : { rows: [], rowCount: 1 }));
+  await createBalance(c.db, ME, balanceInput);
+  const snap = c.calls.find((x) => x.text.startsWith("INSERT INTO myfp.balance_snapshots"));
+  assert.ok(snap, "스냅샷 갱신 쿼리");
+  assert.match(snap.text, /FROM myfp\.balance_items WHERE user_id = \$1/);
+  assert.equal(snap.params[0], ME);
+  assert.match(String(snap.params[1]), /^\d{4}-\d{2}$/);
+  assertScoped(c.calls, "balance.create+snapshot");
+  const none = fakeDb(noRows);
+  assert.equal(await deleteBalance(none.db, ME, OTHER_ITEM), false);
+  assert.equal(none.calls.some((x) => x.text.includes("balance_snapshots")), false, "지운 행이 없으면 스냅샷도 건드리지 않는다");
+  const l = fakeDb(noRows);
+  assert.deepEqual(await listSnapshots(l.db, ME), []);
+  assertScoped(l.calls, "snapshots.list");
 });

@@ -121,3 +121,19 @@ test("공유 생성 입력: 섹션 최소 1개, 만료 선택 필수, 체크박�
   const badExpiry = parseShareInput({ scope_fixed: "on", expires: "365" }, NOW);
   assert.ok(!badExpiry.ok && "expires" in badExpiry.errors);
 });
+
+test("차트도 같은 규칙: 금액 숨김이면 비중(%)만, 가운데 합계 null, 금액 숫자 없음", () => {
+  const masked = buildShareView(source({ masks: { amounts: true, details: true } }), NOW);
+  assert.equal(masked.summary?.charts.categories.mode, "percent");
+  assert.equal(masked.summary?.charts.categories.total, null);
+  assert.equal(masked.summary?.charts.projection.mode, "percent");
+  assert.equal(masked.balances?.charts.composition.mode, "percent");
+  assert.equal(masked.balances?.charts.composition.total, null);
+  assert.equal(masked.balances?.charts.compare.mode, "percent");
+  const json = JSON.stringify(masked);
+  for (const n of [SECRET_AMOUNT, SECRET_AMOUNT + 1, SECRET_AMOUNT + 2]) assert.equal(json.includes(String(n)), false, String(n));
+  const open = buildShareView(source({}), NOW);
+  assert.equal(open.summary?.charts.categories.mode, "krw");
+  assert.equal(open.summary?.charts.categories.total, SECRET_AMOUNT);
+  assert.equal(open.balances?.charts.composition.total, SECRET_AMOUNT + 1);
+});

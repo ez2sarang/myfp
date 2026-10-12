@@ -59,3 +59,18 @@ test("서버 액션이 아닌 곳에서 next/headers cookies() 로 세션을 직
   }
   assert.ok(existsSync(path.join(root, "src", "proxy.ts")), "proxy.ts 가 있어야 한다");
 });
+
+test("차트 컴포넌트는 use client 이고 DB·세션·서버 모듈을 가져오지 않는다 (데이터 가공은 서버의 finance/charts.ts)", () => {
+  const files = walk(path.join(root, "src", "components", "charts"))
+    .filter((f) => f.endsWith("-chart.tsx"))
+    .map((f) => path.relative(root, f).split(path.sep).join("/"));
+  assert.ok(files.length >= 4);
+  for (const f of files) {
+    const code = readCode(f);
+    assert.match(code, /^"use client";/, f);
+    assert.doesNotMatch(code, /@\/lib\/(db|session|auth|actions)/, f);
+  }
+  for (const page of ["src/app/app/page.tsx", "src/app/app/assets/page.tsx"]) {
+    assert.match(readCode(page), /from "@\/lib\/finance\/charts"/, `${page}: 차트 데이터는 서버에서 가공`);
+  }
+});
