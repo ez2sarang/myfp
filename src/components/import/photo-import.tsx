@@ -273,7 +273,7 @@ export function PhotoImport({ today, sharedWithGroup }: { today: string; sharedW
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted">카드 앱 이용내역·영수증·관리비 고지서·손글씨 메모 사진을 고르세요. 처음 한 번 인식 모델(약 17MB)을 내려받습니다.</p>
+            <p className="text-sm text-muted">카드 앱 이용내역(스크린샷)·영수증·관리비 고지서 사진을 고르세요. 손글씨 메모는 줄 구분만 도와주니 항목 이름과 금액은 직접 고쳐 주세요. 처음 한 번 <span className="whitespace-nowrap">인식 모델(약 16MB)을</span> 내려받습니다.</p>
           )}
         </CardBody>
       </Card>
