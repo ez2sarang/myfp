@@ -12,9 +12,10 @@ import { assertSameOrigin } from "@/lib/http/assert-same-origin";
 import { requireActiveUser } from "@/lib/session";
 import { ACCOUNT_DELETE_PHRASE, DELETE_CONFIRM_PHRASE, type ActionState } from "./state";
 
+// 이름 저장은 이름 관문의 유일한 예외(allowNoName): 이름이 없는 사용자가 이름 입력 화면(/app/welcome)에서 처음 이름을 정할 때도 이 액션을 쓴다.
 export async function updateDisplayNameAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await assertSameOrigin();
-  const viewer = await requireActiveUser("/app/settings");
+  const viewer = await requireActiveUser("/app/settings", { allowNoName: true });
   let value: string | null = null;
   if (formData.get("intent") !== "clear") {
     const checked = validateDisplayName(formData.get("displayName"));

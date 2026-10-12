@@ -6,8 +6,9 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { buildLoginUrl } from "@/lib/auth-core/callback-url";
 import { decideGate, decideShareAccess, isActiveAdmin } from "@/lib/auth-core/gate";
+import { welcomeUrl } from "@/lib/auth-core/name-gate";
 import { db } from "@/lib/db/pool";
-import { getUserRecord, type UserRecord } from "@/lib/db/queries/users";
+import { getUserRecord, userHasUsableName, type UserRecord } from "@/lib/db/queries/users";
 
 export type Viewer = UserRecord;
 
@@ -21,6 +22,9 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   return getUserRecord(db, userId);
 });
 
+/** 쓸 수 있는 이름이 있는지(요청마다 한 번만 조회). 이름 값은 Viewer 에 싣지 않는다 */
+export const viewerHasUsableName = cache(async (userId: string): Promise<boolean> => userHasUsableName(db, userId));
+
 /** 로그인만 확인한다 (가입 대기 안내 화면용). */
 export async function requireUser(callbackPath = "/app"): Promise<Viewer> {
   const viewer = await getViewer();
@@ -28,12 +32,16 @@ export async function requireUser(callbackPath = "/app"): Promise<Viewer> {
   return viewer;
 }
 
-/** 로그인 + 활성 계정. 가입 대기·차단 계정은 안내 화면으로 보낸다. */
-export async function requireActiveUser(callbackPath = "/app"): Promise<Viewer> {
+/**
+ * 로그인 + 활성 계정 + 이름. 가입 대기·차단 계정은 안내 화면으로, 활성인데 쓸 수 있는 이름이 없으면 이름 입력 화면(/app/welcome?next=…)으로 보낸다
+ * (src/lib/auth-core/name-gate.ts 의 decideAppAccess 와 같은 순서). allowNoName 은 이름 입력 화면과 이름 저장 액션만 쓴다(루프 없음).
+ */
+export async function requireActiveUser(callbackPath = "/app", opts: { allowNoName?: boolean } = {}): Promise<Viewer> {
   const viewer = await getViewer();
   const gate = decideGate(viewer);
   if (gate === "login") redirect(buildLoginUrl(callbackPath));
   if (gate !== "ok") redirect(PENDING_PATH);
+  if (!opts.allowNoName && !(await viewerHasUsableName((viewer as Viewer).id))) redirect(welcomeUrl(callbackPath));
   return viewer as Viewer;
 }
 
@@ -45,6 +53,8 @@ export async function requireShareViewer(callbackPath: string): Promise<{ viewer
   const viewer = await getViewer();
   const access = decideShareAccess(viewer);
   if (access === "login") redirect(buildLoginUrl(callbackPath));
+  // 이름 관문(활성 계정만, 토큰 확인 전): 토큰이 유효하든 아니든 이름 없는 사용자에게는 같은 이름 입력 화면으로 (decideShareGate 와 같은 순서)
+  if (access === "ok" && (viewer as Viewer).status === "active" && !(await viewerHasUsableName((viewer as Viewer).id))) redirect(welcomeUrl(callbackPath));
   return { viewer: viewer as Viewer, blocked: access === "blocked" };
 }
 

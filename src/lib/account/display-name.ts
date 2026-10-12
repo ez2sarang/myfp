@@ -29,6 +29,14 @@ export function checkShortName(raw: unknown, max: number): ShortNameCheck {
   return { ok: true, value };
 }
 
+const FORBIDDEN_ALL = new RegExp(FORBIDDEN.source, "gu");
+
+/** 눈에 보이는 글자·숫자가 하나라도 있는지 (보이지 않는 문자·채움 문자를 빼고 본다. 공백·이모지만 있으면 false).
+ *  이름 관문이 소셜 프로필 이름처럼 이 규칙으로 저장되지 않은 값도 판정할 때 쓴다 */
+export function hasVisibleName(raw: unknown): boolean {
+  return typeof raw === "string" && VISIBLE.test(raw.normalize("NFC").replace(FORBIDDEN_ALL, ""));
+}
+
 /** 규칙 위반 사유 → 화면 문장 (label: 「표시 이름」·「태그」 등, empty 는 따로 줄 수 있다) */
 export function shortNameMessage(reason: Exclude<ShortNameCheck, { ok: true }>["reason"], label: string, max: number, emptyMessage?: string): string {
   switch (reason) {

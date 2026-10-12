@@ -76,6 +76,8 @@ test("노출 범위: 표시 이름은 설정·대시보드 안내·관리자 화
     "src/lib/admin/user-label.ts",
     "src/lib/db/queries/users.ts",
     "src/app/app/settings/page.tsx",
+    // 이름 관문의 이름 입력 화면: 본인이 처음 이름을 정한다(같은 저장 액션)
+    "src/app/app/welcome/page.tsx",
     "src/app/app/page.tsx",
     "src/app/admin/users/page.tsx",
     "src/components/settings/display-name-form.tsx",

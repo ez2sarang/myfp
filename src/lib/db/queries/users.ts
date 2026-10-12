@@ -1,5 +1,6 @@
 // 사용자 조회·관리 (서버 전용, Db 주입). 관리 변경은 보호 규칙(admin/guards.ts)을 통과한 뒤에만 쓰고 감사 기록을 남긴다.
 import { checkStatusChange, type GuardResult } from "../../admin/guards.ts";
+import { hasUsableName } from "../../auth-core/name-gate.ts";
 import type { UserRole, UserStatus } from "../../auth-core/provision.ts";
 import { isUuid, type Db } from "../types.ts";
 import { writeAudit } from "./audit.ts";
@@ -84,6 +85,17 @@ export async function getDisplayName(db: Db, userId: string): Promise<string | n
   if (!isUuid(userId)) return null;
   const res = await db.query<{ display_name: string | null }>("SELECT to_jsonb(u) ->> 'display_name' AS display_name FROM myfp.users u WHERE u.id = $1", [userId]);
   return res.rows[0]?.display_name ?? null;
+}
+
+/** 이름 관문용: 표시 이름 또는 공급자 이름 중 보이는 글자·숫자가 있는 값이 있는지(값 자체는 돌려주지 않는다). 사용자가 없으면 false */
+export async function userHasUsableName(db: Db, userId: string): Promise<boolean> {
+  if (!isUuid(userId)) return false;
+  const res = await db.query<{ name: string | null; display_name: string | null }>(
+    "SELECT u.name, to_jsonb(u) ->> 'display_name' AS display_name FROM myfp.users u WHERE u.id = $1",
+    [userId],
+  );
+  const row = res.rows[0];
+  return row ? hasUsableName({ chosen: row.display_name, provider: row.name }) : false;
 }
 
 /** 본인 표시 이름 저장·지우기(null). userId 는 항상 세션 사용자 id 다(호출하는 서버 액션이 보장). 바뀐 행이 없으면 false. */
