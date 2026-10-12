@@ -49,14 +49,11 @@ export function ShareCreateForm({
         </div>
       ) : null}
 
-      <p className="max-w-prose text-sm leading-relaxed text-muted">
-        공유 링크는 myfp 에 가입(로그인)한 사람만 열 수 있습니다. 링크를 받은 사람은 가입(로그인)만 하면 바로 볼 수 있고, 링크를 아는 회원은 다시 전달할 수 있으니 신뢰하는 사람에게만 보내세요. 링크는 언제든 폐기할 수 있습니다.
-      </p>
       <form action={formAction} className="grid gap-x-5 gap-y-4 sm:grid-cols-2" onSubmit={() => setCopied(false)}>
         <Field id="share-label" label="이름 (나만 보임)" error={e.label} hint="예: 가족 공유용">
           <Input id="share-label" name="label" maxLength={60} placeholder="공유 링크" />
         </Field>
-        <Field id="share-expires" label="만료" error={e.expires}>
+        <Field id="share-expires" label="링크 만료" error={e.expires}>
           <Select id="share-expires" name="expires" defaultValue="30" className="w-full">
             <option value="7">7일</option>
             <option value="30">30일</option>
@@ -65,13 +62,13 @@ export function ShareCreateForm({
           </Select>
         </Field>
         <fieldset className="flex flex-col gap-2 rounded-lg border border-line bg-surface-2 px-4 pb-4 pt-2 sm:col-span-2">
-          <legend className="px-1 text-sm font-semibold">기간 (만든 뒤에는 바꿀 수 없습니다)</legend>
-          <div role="radiogroup" aria-label="공유 기간" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <legend className="px-1 text-sm font-semibold">보여 줄 달 (만든 뒤에는 바꿀 수 없습니다)</legend>
+          <div role="radiogroup" aria-label="보여 줄 달" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
             {(
               [
-                ["current", "이번 달 (열람 시점 기준)"],
-                ["month", "특정 달"],
-                ["range", "기간 선택 (최대 12개월)"],
+                ["current", "항상 그때의 이번 달(매달 바뀜)"],
+                ["month", "특정 달 1개"],
+                ["range", "여러 달(최대 12개월)"],
               ] as const
             ).map(([value, label]) => (
               <label key={value} className="flex min-h-11 items-center gap-2 sm:min-h-9">

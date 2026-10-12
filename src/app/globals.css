@@ -473,3 +473,12 @@ summary,
 .guide-table tbody tr:last-child td {
   border-bottom: 0;
 }
+
+/* 예정지출 탭의 「예정·일회성만 보기」: 서버 요청 없이 고정지출 행만 감춘다 (planned-tab.tsx) */
+.planned-board:has(#only-planned:checked) [data-kind="fixed"] {
+  display: none;
+}
+
+.planned-board:has(#only-planned:checked) [data-only-planned-empty] {
+  display: block;
+}

@@ -78,12 +78,12 @@ export default async function SharePage() {
               const state = shareLinkState(l, now);
               return (
                 <TR key={l.id}>
-                  <TD className="font-medium">{l.label}</TD>
+                  <TD className="min-w-28 whitespace-normal font-medium">{l.label}</TD>
                   <TD>
                     <Badge tone={STATE_TONE[state]}>{STATE_LABEL[state]}</Badge>
                   </TD>
-                  <TD className="whitespace-normal text-xs">{l.period ? periodLabel(l.period) : "기간 정보 오류(열리지 않음)"}</TD>
-                  <TD className="whitespace-normal text-xs">{l.scopes.map((s) => SHARE_SCOPE_LABELS[s]).join(", ") || "—"}</TD>
+                  <TD className="min-w-36 whitespace-normal text-xs">{l.period ? periodLabel(l.period) : "기간 정보 오류(열리지 않음)"}</TD>
+                  <TD className="min-w-48 whitespace-normal text-xs">{l.scopes.map((s) => SHARE_SCOPE_LABELS[s]).join(", ") || "—"}</TD>
                   <TD className="whitespace-normal text-xs">
                     {[l.masks.amounts ? "금액" : null, l.masks.details ? "메모·기관" : null].filter(Boolean).join(", ") || "없음"}
                   </TD>

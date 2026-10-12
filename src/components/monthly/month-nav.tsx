@@ -70,7 +70,8 @@ export function MonthNav({
           <ChevronRight className="size-4" />
         </span>
       )}
-      <Badge tone={TIMING[timing].tone}>{TIMING[timing].label}</Badge>
+      {/* 이번 달이면 제목·고르기 상자에 이미 드러나므로 배지를 생략하고, 과거·예정 달일 때만 붙인다 */}
+      {timing !== "current" ? <Badge tone={TIMING[timing].tone}>{TIMING[timing].label}</Badge> : null}
       {month !== current ? (
         <Link href={Object.keys(keep).length > 0 ? `${basePath}?${new URLSearchParams(keep).toString()}` : basePath} className="text-sm font-medium text-brand underline underline-offset-4">
           이번 달로

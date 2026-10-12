@@ -78,7 +78,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const header = (
     <>
-      <PageHeader eyebrow={`기준 달 · ${monthLabel(month)}`} title="대시보드" description={`${formatDate(today)} 기준 (서울 시간)`} />
+      {/* 이번 달 탭은 기준 달을 제목으로 한 번만 쓴다(달 고르기 상자는 그 아래). 예정지출·내역 탭은 여러 달을 다루므로 「대시보드」 */}
+      <PageHeader
+        eyebrow={tab === "month" ? "대시보드" : undefined}
+        title={tab === "month" ? monthLabel(month) : "대시보드"}
+        description={`${formatDate(today)} 기준 (서울 시간)`}
+      />
       {viewer.name === null && displayName === null ? <DisplayNameHint /> : null}
       {empty ? (
         <div
