@@ -97,6 +97,10 @@ const ACTION_FILES: Record<string, { guard: RegExp; actions: string[] }> = {
   "src/lib/actions/share.ts": { guard: /requireActiveUser\(/, actions: ["createShareAction", "revokeShareAction"] },
   "src/lib/actions/account.ts": { guard: /requireActiveUser\(/, actions: ["updateDisplayNameAction", "deleteAllDataAction", "deleteAccountAction"] },
   "src/lib/actions/admin.ts": { guard: /requireAdmin\(/, actions: ["setUserStatusAction"] },
+  "src/lib/actions/monthly.ts": {
+    guard: /requireActiveUser\(/,
+    actions: ["createPlannedAction", "updatePlannedAction", "setPlannedStatusAction", "deletePlannedAction", "setOverrideAction", "clearOverrideAction"],
+  },
 };
 
 test("데이터 서버 액션은 모두 첫 문장이 await assertSameOrigin() 이고, 바로 다음이 세션 가드(requireActiveUser/requireAdmin)다", () => {

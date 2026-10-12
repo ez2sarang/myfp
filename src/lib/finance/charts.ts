@@ -142,3 +142,14 @@ export function netWorthTrend(snapshots: readonly { month: string; assetsTotal: 
     .sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0))
     .map((s) => ({ month: s.month, assets: s.assetsTotal, liabilities: s.liabilitiesTotal, netWorth: s.assetsTotal - s.liabilitiesTotal }));
 }
+
+/** 월별 고정/예정 누적 막대 (월 단위 모델). 입력은 occurrences.ts 의 monthTotals */
+export function monthTrendStack(totals: readonly { month: string; fixed: number; planned: number; total: number }[]): StackData {
+  return {
+    series: [
+      { key: "fixed", label: "고정지출", color: "var(--chart-1)" },
+      { key: "planned", label: "예정·일회성", color: "var(--chart-3)" },
+    ],
+    rows: totals.map((t, i) => ({ month: t.month, label: monthLabel(t.month, i === 0), values: { fixed: t.fixed, planned: t.planned }, total: t.total })),
+  };
+}

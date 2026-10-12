@@ -1,9 +1,15 @@
-// 내 데이터 전체 삭제 (서버 전용, Db 주입). 사용자 계정(로그인)은 남기고 사용자가 입력한 재무 데이터·순자산 스냅샷·공유 링크를 지운다.
+// 내 데이터 전체 삭제 (서버 전용, Db 주입). 사용자 계정(로그인)은 남기고 사용자가 입력한 재무 데이터(고정지출·덮어쓰기·예정지출·자산/부채)·순자산 스냅샷·공유 링크를 지운다.
 // 호출하는 쪽이 트랜잭션으로 감싼다. 감사 기록에는 지운 건수만 남긴다.
 import type { Db } from "../types.ts";
 import { writeAudit } from "./audit.ts";
 
 export async function deleteAllUserData(db: Db, userId: string): Promise<{ fixed: number; balances: number; shares: number }> {
+  // 월 단위 모델(0006) 테이블은 마이그레이션이 적용된 뒤에만 있다. 있으면 함께 지운다(덮어쓰기는 고정지출보다 먼저).
+  const monthly = await db.query<{ overrides: boolean; planned: boolean }>(
+    "SELECT to_regclass('myfp.fixed_overrides') IS NOT NULL AS overrides, to_regclass('myfp.planned_expenses') IS NOT NULL AS planned",
+  );
+  if (monthly.rows[0]?.overrides === true) await db.query("DELETE FROM myfp.fixed_overrides WHERE user_id = $1", [userId]);
+  if (monthly.rows[0]?.planned === true) await db.query("DELETE FROM myfp.planned_expenses WHERE user_id = $1", [userId]);
   const fixed = await db.query("DELETE FROM myfp.fixed_expenses WHERE user_id = $1", [userId]);
   const balances = await db.query("DELETE FROM myfp.balance_items WHERE user_id = $1", [userId]);
   const shares = await db.query("DELETE FROM myfp.share_links WHERE user_id = $1", [userId]);

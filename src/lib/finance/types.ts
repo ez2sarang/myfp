@@ -105,5 +105,5 @@ export interface BalanceItem {
 }
 
 /** 사용자당 상한 */
-export const LIMITS = { fixedExpenses: 300, balanceItems: 100, activeShareLinks: 10 } as const;
+export const LIMITS = { fixedExpenses: 300, balanceItems: 100, activeShareLinks: 10, plannedExpenses: 600, fixedOverrides: 600 } as const;
 export const MAX_AMOUNT = 1_000_000_000_000;

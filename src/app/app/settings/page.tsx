@@ -78,7 +78,7 @@ export default async function SettingsPage() {
         <Card className="border-danger/40">
           <CardHeader>
             <CardTitle>내 데이터 전체 삭제</CardTitle>
-            <p className="text-sm text-muted">고정지출·자산/부채·공유 링크를 모두 지웁니다. 되돌릴 수 없습니다. 로그인 계정은 남습니다.</p>
+            <p className="text-sm text-muted">고정지출(달별 변경 포함)·예정지출·자산/부채·공유 링크를 모두 지웁니다. 되돌릴 수 없습니다. 로그인 계정은 남습니다.</p>
           </CardHeader>
           <CardBody>
             <DeleteAllForm action={deleteAllDataAction} phrase={DELETE_CONFIRM_PHRASE} />

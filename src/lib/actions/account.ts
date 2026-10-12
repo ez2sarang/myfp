@@ -47,7 +47,7 @@ export async function deleteAllDataAction(_prev: ActionState, formData: FormData
     return { ok: false, message: "삭제하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
   }
   revalidatePath("/app", "layout");
-  return { ok: true, message: "고정지출·자산/부채·공유 링크를 모두 삭제했습니다." };
+  return { ok: true, message: "고정지출·예정지출·자산/부채·공유 링크를 모두 삭제했습니다." };
 }
 
 export async function deleteAccountAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
