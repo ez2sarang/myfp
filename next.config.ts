@@ -39,6 +39,30 @@ const shareHeaders = [
   { key: "Referrer-Policy", value: "no-referrer" },
 ];
 
+// 광고(AdSense): NEXT_PUBLIC_ADSENSE_MODE=serve 이고 client 형식이 맞게 빌드한 경우에만, 가이드 글(/guide/<slug>) 하나에만 CSP 를 넓힌다.
+// 기본(off)에서는 규칙을 아예 추가하지 않아 모든 경로가 위 CSP 하나를 그대로 받는다. 판정은 src/lib/ads/config.ts 와 같다(시험으로 고정).
+// Google 은 광고 코드의 도메인이 수시로 바뀐다며 도메인 허용 목록을 공개하지 않고 nonce 기반 strict CSP 만 지원한다고 안내한다
+// (support.google.com/adsense/answer/16283098). 정적 생성 페이지는 요청마다 nonce 를 줄 수 없어, 그 안내의 지시어 값에서 nonce 만 뺀 형태(https:)로 연다.
+// 같은 키는 뒤 규칙이 앞 규칙을 덮어쓰므로 이 규칙은 전체 규칙보다 뒤에 둔다.
+function adsServe(): boolean {
+  const mode = (process.env.NEXT_PUBLIC_ADSENSE_MODE ?? "").trim();
+  return mode === "serve" && /^ca-pub-\d{10,20}$/.test(process.env.NEXT_PUBLIC_ADSENSE_CLIENT ?? "");
+}
+
+const AD_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self'",
+  "connect-src 'self' https:",
+  "frame-src https:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://accounts.google.com https://kauth.kakao.com https://accounts.kakao.com",
+  "frame-ancestors 'none'",
+].join("; ");
+
 // 서버 액션의 Origin 허용 호스트: 배포 주소(AUTH_URL)의 호스트. 프록시 뒤에서 요청 호스트가 달라도 이 호스트에서 온 액션은 받는다.
 // (Origin 이 없는 요청의 거부는 src/lib/http 의 assertSameOrigin 이 맡는다. Next 자체는 Origin 이 없으면 경고만 하고 실행한다.)
 function authHost(): string[] {
@@ -52,6 +76,8 @@ function authHost(): string[] {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // 광고 켜짐 여부를 빌드 상수로 고정한다. off 빌드에서는 광고 단위(클라이언트) 코드를 불러오는 분기가 죽은 코드가 되어 번들에서 빠진다(src/components/ads/ad-slot.tsx).
+  env: { MYFP_ADS_SERVE_BUILD: adsServe() ? "1" : "0" },
   experimental: { serverActions: { allowedOrigins: authHost() } },
   // 이미지 최적화 API 를 쓰지 않는다 (래스터 이미지가 없고, 해당 API 의 알려진 취약점 노출면을 없앤다).
   images: { unoptimized: true },
@@ -59,6 +85,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       { source: "/s/:path*", headers: shareHeaders },
+      ...(adsServe() ? [{ source: "/guide/:slug", headers: [{ key: "Content-Security-Policy", value: AD_CONTENT_SECURITY_POLICY }] }] : []),
     ];
   },
 };
