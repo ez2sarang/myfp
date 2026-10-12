@@ -50,7 +50,7 @@ function Donut() {
         })}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[0.65rem] text-muted">월 합계</span>
+        <span className="text-[0.65rem] text-muted">이 달 합계</span>
         <span className="num text-base font-semibold tracking-tight">{Math.round(total / 10_000)}만원</span>
       </div>
     </div>
@@ -62,7 +62,7 @@ export function ProductPreview() {
   const rows = sortItems(DEMO_ITEMS, sort);
   const total = DEMO_SUMMARY.monthlyTotal;
   const kpis = [
-    { label: "월 고정지출", value: won(total), hint: `활성 ${DEMO_ITEMS.length}건` },
+    { label: "이 달 지출 합계", value: won(total), hint: `고정 ${DEMO_SUMMARY.fixedCount}건 · 예정 ${DEMO_SUMMARY.plannedCount}건` },
     { label: "이번 달 남은 납부액", value: won(DEMO_SUMMARY.remaining), hint: `이달 말까지 ${DEMO_SUMMARY.remainingCount}건` },
     { label: "다음 납부", value: DEMO_SUMMARY.next.label, hint: DEMO_SUMMARY.next.hint },
     { label: "순자산", value: won(DEMO_SUMMARY.netWorth), hint: DEMO_SUMMARY.netWorthHint },
@@ -79,13 +79,26 @@ export function ProductPreview() {
           <span className="size-2.5 rounded-full bg-line-strong" />
           <span className="size-2.5 rounded-full bg-line-strong" />
         </span>
-        <span className="text-xs font-medium text-muted">대시보드 · 이번 달</span>
+        <span className="text-xs font-medium text-muted">대시보드</span>
         <figcaption className="ml-auto rounded-full border border-line bg-surface px-2 py-0.5 text-[0.65rem] font-medium text-muted">
           예시 화면 · 가상 데이터
         </figcaption>
       </div>
 
       <div className="flex flex-col gap-3 p-3 sm:gap-4 sm:p-5">
+        {/* 실제 대시보드의 탭과 달 이동 (장식, 동작하지 않음) */}
+        <div aria-hidden="true" className="flex flex-wrap items-center justify-between gap-2 border-b border-line">
+          <span className="flex gap-3 text-xs font-semibold">
+            {["이번 달", "예정지출", "내역"].map((tab, i) => (
+              <span key={tab} className={cn("-mb-px border-b-2 pb-2", i === 0 ? "border-brand text-ink" : "border-transparent text-muted")}>
+                {tab}
+              </span>
+            ))}
+          </span>
+          <span className="mb-1.5 inline-flex items-center gap-1 rounded-md border border-line bg-surface px-1.5 py-0.5 text-[0.7rem] font-semibold">
+            <span className="text-muted">‹</span> 이번 달 <span className="text-muted">›</span>
+          </span>
+        </div>
         <dl className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
           {kpis.map((k, i) => (
             <div
@@ -104,7 +117,7 @@ export function ProductPreview() {
 
         <div className="grid gap-3 sm:gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
-            <p className="text-sm font-semibold tracking-tight">분류별 월 고정지출</p>
+            <p className="text-sm font-semibold tracking-tight">분류별 이 달 지출</p>
             <div className="grid flex-1 items-center gap-4 sm:grid-cols-[auto_1fr] md:grid-cols-1 lg:grid-cols-[auto_1fr]">
               <Donut />
               <ul className="flex flex-col gap-1.5 text-xs">
@@ -149,7 +162,7 @@ export function ProductPreview() {
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate font-medium">{item.name}</span>
                     <span className="truncate text-[0.7rem] text-muted">
-                      매월 {item.day}일 · {item.method}
+                      {item.planned ? `${item.planned} · ${item.day}일` : `매월 ${item.day}일`} · {item.method}
                     </span>
                   </span>
                   <span className="num shrink-0 font-semibold">{won(item.amount)}</span>

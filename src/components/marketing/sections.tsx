@@ -2,7 +2,10 @@ import Link from "next/link";
 import {
   ArrowDownWideNarrow,
   ArrowRight,
-  CalendarClock,
+  CalendarPlus,
+  CalendarRange,
+  ChevronLeft,
+  ChevronRight,
   ChartColumnStacked,
   Download,
   Eye,
@@ -17,12 +20,13 @@ import {
   Trash2,
   TrendingUp,
   UserCheck,
+  Users,
   Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CTA, DEMO_ITEMS, DEMO_LOAN_END_INDEX, DEMO_MONTHS, FAQ, FEATURES, HOW_NOTES, SECURITY, SHARE, SIGNED_IN, STEPS } from "./content";
+import { CTA, DEMO_ITEMS, DEMO_LOAN_END_INDEX, DEMO_MONTHS, DEMO_SUMMARY, FAQ, FEATURES, HOW_NOTES, SECURITY, SHARE, SIGNED_IN, STEPS } from "./content";
 import { SessionLink } from "./session-link";
 
 // 소개 페이지 섹션들. 그림은 모두 CSS·SVG 로 만든 장식(aria-hidden)이고, 숫자는 content.ts 의 가상 예시다.
@@ -70,7 +74,9 @@ function BentoCell({
   );
 }
 
-const total = DEMO_ITEMS.reduce((s, i) => s + i.amount, 0);
+const won = (v: number) => `${v.toLocaleString("ko-KR")}원`;
+// 12개월 막대는 고정지출만으로 그린다(예정·일회성은 달마다 달라서 장식에서 뺀다)
+const total = DEMO_ITEMS.filter((i) => !i.planned).reduce((s, i) => s + i.amount, 0);
 const loan = DEMO_ITEMS.find((i) => i.category === "대출 상환")?.amount ?? 0;
 
 function ProjectionArt() {
@@ -96,8 +102,8 @@ function ProjectionArt() {
 
 function SummaryArt() {
   const rows = [
-    { label: "월 고정지출", value: `${total.toLocaleString("ko-KR")}원` },
-    { label: "이번 달 남은 납부액", value: "925,000원" },
+    { label: "이 달 지출 합계", value: won(DEMO_SUMMARY.monthlyTotal), ratio: 1 },
+    { label: "이번 달 남은 납부액", value: won(DEMO_SUMMARY.remaining), ratio: DEMO_SUMMARY.remaining / DEMO_SUMMARY.monthlyTotal },
   ];
   return (
     <div className="grid h-full gap-3 sm:grid-cols-2">
@@ -106,7 +112,7 @@ function SummaryArt() {
           <p className="text-xs text-muted">{r.label}</p>
           <p className="num mt-1 text-2xl font-semibold tracking-tight">{r.value}</p>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bg-alt">
-            <span className="block h-full rounded-full bg-brand" style={{ width: i === 0 ? "100%" : "92%" }} />
+            <span className="block h-full rounded-full bg-brand" style={{ width: `${Math.round(r.ratio * 100)}%` }} />
           </div>
         </div>
       ))}
@@ -114,18 +120,87 @@ function SummaryArt() {
   );
 }
 
-function ScheduleArt() {
-  const soon = [...DEMO_ITEMS].sort((a, b) => a.dLeft - b.dLeft).slice(0, 3);
+function PlannedArt() {
+  const rows = [
+    { name: "노트북 할부", badge: "예정 3/10회", amount: 150_000 },
+    { name: "노트북 할부", badge: "예정 4/10회", amount: 150_000, next: true },
+    { name: "자동차세", badge: "예정·일회성", amount: 120_000, next: true },
+  ];
   return (
     <ul className="flex flex-col gap-2">
-      {soon.map((i) => (
-        <li key={i.name} className="flex items-center gap-2.5 rounded-md border border-line bg-surface px-3 py-2 text-sm">
-          <span className="num rounded bg-brand-soft px-1.5 py-0.5 text-[0.7rem] font-semibold text-brand">D-{i.dLeft}</span>
-          <span className="flex-1 truncate">{i.name}</span>
-          <span className="num font-medium">{i.amount.toLocaleString("ko-KR")}원</span>
+      {rows.map((r, i) => (
+        <li key={i} className="flex items-center gap-2.5 rounded-md border border-line bg-surface px-3 py-2 text-sm">
+          <span className="num w-10 shrink-0 text-[0.7rem] text-muted">{r.next ? "다음 달" : "이번 달"}</span>
+          <span className="flex-1 truncate">{r.name}</span>
+          <span className="rounded bg-brand-soft px-1.5 py-0.5 text-[0.65rem] font-semibold text-brand">{r.badge}</span>
+          <span className="num font-medium">{won(r.amount)}</span>
         </li>
       ))}
     </ul>
+  );
+}
+
+function MonthArt() {
+  return (
+    <div className="flex flex-col gap-3 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex size-8 items-center justify-center rounded-md border border-line bg-surface">
+          <ChevronLeft className="size-4" />
+        </span>
+        <span className="flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-center font-semibold">10월 (이번 달)</span>
+        <span className="inline-flex size-8 items-center justify-center rounded-md border border-line bg-surface">
+          <ChevronRight className="size-4" />
+        </span>
+      </div>
+      <div className="flex gap-3 border-b border-line text-xs font-semibold">
+        {["이번 달", "예정지출", "내역"].map((t, i) => (
+          <span key={t} className={cn("-mb-px border-b-2 pb-1.5", i === 2 ? "border-brand text-ink" : "border-transparent text-muted")}>
+            {t}
+          </span>
+        ))}
+      </div>
+      <ul className="flex flex-col gap-1.5 text-xs">
+        {[
+          { m: "9월", v: 999_500 },
+          { m: "8월", v: 985_000 },
+        ].map((r) => (
+          <li key={r.m} className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-1.5">
+            <span className="font-medium">{r.m}</span>
+            <span className="num text-muted">합계 {won(r.v)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function HouseholdArt() {
+  const members = [
+    { tag: "나", amount: 640_000, color: "var(--chart-1)" },
+    { tag: "가족", amount: 360_000, color: "var(--chart-2)" },
+  ];
+  const sum = members.reduce((s, m) => s + m.amount, 0);
+  return (
+    <div className="flex flex-col gap-3 text-sm">
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs text-muted">합산 월 고정지출</span>
+        <span className="num text-lg font-semibold tracking-tight">{won(sum)}</span>
+      </div>
+      <div className="flex h-2.5 overflow-hidden rounded-full">
+        {members.map((m) => (
+          <span key={m.tag} style={{ width: `${(m.amount / sum) * 100}%`, background: m.color }} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5 text-xs">
+        {members.map((m) => (
+          <span key={m.tag} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1">
+            <span className="size-2 rounded-full" style={{ background: m.color }} />
+            {m.tag}
+          </span>
+        ))}
+        <span className="inline-flex items-center rounded-full border border-dashed border-line-strong px-2.5 py-1 text-muted">나만 보기 항목 제외</span>
+      </div>
+    </div>
   );
 }
 
@@ -173,6 +248,7 @@ function ShareArt() {
         <span className="num truncate text-muted">myfp.pineai.dev/s/••••••••</span>
       </div>
       <div className="flex flex-wrap gap-1.5">
+        <span className="rounded-full border border-line bg-surface px-2.5 py-1">그때의 이번 달</span>
         <span className="rounded-full border border-line bg-surface px-2.5 py-1">30일 후 만료</span>
         <span className="rounded-full border border-line bg-surface px-2.5 py-1">읽기 전용</span>
         <span className="rounded-full border border-line bg-surface px-2.5 py-1">금액 숨김 선택</span>
@@ -207,19 +283,25 @@ export function Features() {
         <BentoCell icon={Wallet} title={f.summary.title} body={f.summary.body} className="lg:col-span-2">
           <SummaryArt />
         </BentoCell>
-        <BentoCell icon={CalendarClock} title={f.schedule.title} body={f.schedule.body}>
-          <ScheduleArt />
+        <BentoCell icon={CalendarRange} title={f.month.title} body={f.month.body}>
+          <MonthArt />
         </BentoCell>
-        <BentoCell icon={ArrowDownWideNarrow} title={f.sort.title} body={f.sort.body}>
-          <SortArt />
+        <BentoCell icon={CalendarPlus} title={f.planned.title} body={f.planned.body}>
+          <PlannedArt />
         </BentoCell>
         <BentoCell icon={ChartColumnStacked} title={f.projection.title} body={f.projection.body} className="lg:col-span-2">
           <ProjectionArt />
         </BentoCell>
+        <BentoCell icon={ArrowDownWideNarrow} title={f.sort.title} body={f.sort.body}>
+          <SortArt />
+        </BentoCell>
         <BentoCell icon={TrendingUp} title={f.debt.title} body={f.debt.body}>
           <TrendArt />
         </BentoCell>
-        <BentoCell icon={Link2} title={f.share.title} body={f.share.body}>
+        <BentoCell icon={Users} title={f.household.title} body={f.household.body}>
+          <HouseholdArt />
+        </BentoCell>
+        <BentoCell icon={Link2} title={f.share.title} body={f.share.body} className="lg:col-span-2">
           <ShareArt />
         </BentoCell>
         <BentoCell icon={ShieldCheck} title={f.data.title} body={f.data.body}>
@@ -244,7 +326,7 @@ export function How() {
             </li>
           ))}
         </ol>
-        <ul className="mt-8 grid gap-3 text-sm text-muted md:grid-cols-3">
+        <ul className="mt-8 grid gap-3 text-sm text-muted md:grid-cols-2">
           {HOW_NOTES.map((n) => (
             <li key={n} className="flex gap-2.5">
               <Plus aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-brand" />
@@ -264,17 +346,22 @@ export function Security() {
     <section id="security" aria-labelledby="security-title" className="wrap scroll-mt-20 overflow-x-clip py-20 sm:py-28">
       <div className="grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
         <div className="flex flex-col gap-8">
-          <SectionHead id="security-title" eyebrow="공유·보안" title={SHARE.title} lead={SHARE.lead} />
-          <ul className="flex flex-col gap-3">
-            {SHARE.points.map((p) => (
-              <li key={p} className="flex gap-3 text-[0.95rem]">
-                <span aria-hidden="true" className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
-                  <ArrowRight className="size-3" />
-                </span>
-                <span>{p}</span>
-              </li>
-            ))}
-          </ul>
+          <SectionHead id="security-title" eyebrow="공유·함께 보기·보안" title={SHARE.title} lead={SHARE.lead} />
+          {SHARE.groups.map((g) => (
+            <div key={g.title} className="flex flex-col gap-3">
+              <h3 className="text-lg tracking-tight">{g.title}</h3>
+              <ul className="flex flex-col gap-3">
+                {g.points.map((p) => (
+                  <li key={p} className="flex gap-3 text-[0.95rem]">
+                    <span aria-hidden="true" className="mt-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
+                      <ArrowRight className="size-3" />
+                    </span>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
         <div aria-hidden="true" className="relative self-center">
@@ -291,8 +378,8 @@ export function Security() {
                 <dd className="mt-1 font-medium">대시보드 요약</dd>
               </div>
               <div className="rounded-lg border border-line bg-surface-2 p-3">
-                <dt className="text-xs text-muted">만료</dt>
-                <dd className="mt-1 font-medium">30일 후</dd>
+                <dt className="text-xs text-muted">보여 줄 달</dt>
+                <dd className="mt-1 font-medium">그때의 이번 달</dd>
               </div>
             </dl>
             <ul className="mt-4 flex flex-col divide-y divide-line rounded-lg border border-line text-sm">
@@ -312,7 +399,7 @@ export function Security() {
               </li>
             </ul>
             <div className="mt-4 flex items-center justify-between gap-3 text-xs text-muted">
-              <span>열람 3회 · 누가 열었는지는 저장하지 않음</span>
+              <span>30일 후 만료 · 열람 3회 · 누가 열었는지는 저장하지 않음</span>
               <span className="rounded-md border border-line px-2.5 py-1.5 font-semibold text-danger">폐기</span>
             </div>
           </div>
