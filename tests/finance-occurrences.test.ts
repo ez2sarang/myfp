@@ -158,3 +158,13 @@ test("세부 항목 정렬·필터: 금액 내림차순 기본, 날짜 미정은
   assert.deepEqual([filtered.rows.map((r) => r.id), filtered.total], [["b"], 9_000]);
   assert.equal(occurrenceDetails(occ, { sort: "name", dir: "asc", cat: "housing" }).query.cat, null, "없는 분류는 무시");
 });
+
+test("시작일이 없는 항목은 등록일(서울)이 속한 달부터만 발생한다. 시작일이 있으면 기존대로", () => {
+  const noStart = fx({ id: "n", billingDay: 5, createdOn: "2026-08-20" });
+  assert.equal(fixedOccurrenceIn(noStart, "2026-07", TODAY), null, "등록 전 달은 0");
+  assert.equal(fixedOccurrenceIn(noStart, "2026-08", TODAY)?.date, "2026-08-05", "등록 달부터 (그 달 전체)");
+  assert.equal(monthOccurrences([noStart], [], [], "2026-06", TODAY).length, 0);
+  assert.equal(summarizeMonth(monthOccurrences([noStart], [], [], "2026-07", TODAY), "2026-07", TODAY).paidTotal, 0, "등록 전 달에 납부 완료 합계 없음");
+  const withStart = fx({ id: "s", billingDay: 5, startDate: "2026-01-01", createdOn: "2026-08-20" });
+  assert.equal(fixedOccurrenceIn(withStart, "2026-03", TODAY)?.date, "2026-03-05", "시작일이 명시되면 등록일과 무관");
+});

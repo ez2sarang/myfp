@@ -91,6 +91,8 @@ export interface FixedExpense {
   archived: boolean;
   /** 나만 보기: 함께 보기 그룹 합산에서 빠진다 (0008 전에는 항상 false) */
   private?: boolean;
+  /** 등록일(서울, YYYY-MM-DD). 시작일이 없는 항목은 이 달이 과거 발생의 하한이다 */
+  createdOn?: string | null;
 }
 
 export interface BalanceItem {

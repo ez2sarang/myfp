@@ -68,6 +68,8 @@ export interface HouseholdFixed {
   endDate: string | null;
   active: boolean;
   archived: boolean;
+  /** 등록일(서울) — 시작일이 없을 때 과거 발생의 하한 */
+  createdOn: string | null;
 }
 
 export interface HouseholdBalance {
@@ -143,9 +145,11 @@ export async function visibleToViewer(db: Db, viewerId: string): Promise<Househo
     end_date: string | null;
     active: boolean;
     archived: boolean;
+    created_on: string | null;
   }>(
     `SELECT m.user_id::text AS owner_id, f.id::text AS id, f.name, f.category, f.amount::text AS amount, f.cycle, f.billing_day, f.billing_month,
-            to_char(f.start_date, 'YYYY-MM-DD') AS start_date, to_char(f.end_date, 'YYYY-MM-DD') AS end_date, f.active, (f.archived_at IS NOT NULL) AS archived
+            to_char(f.start_date, 'YYYY-MM-DD') AS start_date, to_char(f.end_date, 'YYYY-MM-DD') AS end_date, f.active, (f.archived_at IS NOT NULL) AS archived,
+            to_char((f.created_at AT TIME ZONE 'Asia/Seoul')::date, 'YYYY-MM-DD') AS created_on
        ${VISIBLE_MEMBERS}
        JOIN myfp.fixed_expenses f ON f.user_id = m.user_id
       WHERE me.user_id = $1 AND m.share_fixed = true AND f.private = false
@@ -176,6 +180,7 @@ export async function visibleToViewer(db: Db, viewerId: string): Promise<Househo
       endDate: r.end_date,
       active: r.active,
       archived: r.archived,
+      createdOn: r.created_on ?? null,
     });
   }
 

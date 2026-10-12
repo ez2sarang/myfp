@@ -52,6 +52,7 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>내보내기</CardTitle>
             <p className="text-sm text-muted">엑셀에서 열 수 있는 CSV 파일로 받습니다.</p>
+            <p className="text-sm text-muted">지난 달 기록: 보관한 고정지출은 대시보드 「내역」의 지난 달에는 남지만, 공유 링크에는 기간과 상관없이 나오지 않습니다.</p>
           </CardHeader>
           <CardBody className="flex flex-wrap gap-2">
             <a href="/app/export/fixed" className={buttonClass("secondary", "md")} download>

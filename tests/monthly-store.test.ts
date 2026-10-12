@@ -129,3 +129,10 @@ test("입력 검증: 예정지출(이름·분류·금액·날짜 범위·분할 
   assert.equal(monthInEditableRange("2016-10", TODAY), true);
   assert.equal(monthInEditableRange("2016-09", TODAY), false);
 });
+
+test("고정지출 조회는 등록일(서울 날짜)을 함께 읽어 시작일 없는 항목의 과거 하한으로 쓴다 (earliestFixedMonth 와 같은 규칙)", async () => {
+  const { FIXED_COLUMNS, fixedFromRow } = await import("../src/lib/db/queries/fixed.ts");
+  assert.match(FIXED_COLUMNS, /to_char\(\(created_at AT TIME ZONE 'Asia\/Seoul'\)::date, 'YYYY-MM-DD'\) AS created_on/);
+  const row = fixedFromRow({ id: "x", name: "a", category: "other", amount: "1", cycle: "monthly", billing_day: 1, billing_month: null, payment_method: null, institution: null, start_date: null, end_date: null, active: true, note: null, source: "manual", archived: false, created_on: "2026-08-20" });
+  assert.equal(row.createdOn, "2026-08-20");
+});

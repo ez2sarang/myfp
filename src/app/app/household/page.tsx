@@ -61,7 +61,7 @@ export default async function HouseholdPage({ searchParams }: { searchParams: Pr
   const split = first(params.split) === "owner";
   const query = parseHouseholdQuery(params, selected);
   const floor = shiftMonth(current, -MONTH_PAST_LIMIT);
-  const earliest = [current, ...data.fixed.map((f) => (f.startDate ? monthOf(f.startDate) : current)), ...data.overrides.map((o) => o.month)].reduce(
+  const earliest = [current, ...data.fixed.map((f) => monthOf(f.startDate ?? f.createdOn ?? today)), ...data.overrides.map((o) => o.month)].reduce(
     (min, m) => (m < min ? m : min),
     current,
   );

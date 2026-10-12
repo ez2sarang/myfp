@@ -3,6 +3,7 @@
 //  - 고정지출: 시작일 ≤ 그 달 말일, 종료일 없음 또는 ≥ 그 달 1일. 월 주기는 매달, 연 주기는 납부 월에만. 납부일 31(그 달에 없는 날)은 말일.
 //    납부일이 정해진 항목은 그 날짜가 시작~종료 안에 있어야 한다. 납부일 미정이면 날짜 없이 그 달에 넣는다(연 주기·납부 월 미정은 12분의 1).
 //  - 활성·보관 여부는 이번 달과 미래 달에만 적용한다. 과거 달은 시작·종료일로만 판정한다(비활성 처리로 지난 지출이 사라지지 않게).
+//    시작일이 없는 항목은 등록일(서울)이 속한 달부터만 발생한다.
 //  - 덮어쓰기: 건너뜀이면 합계에서 빠지고(목록에는 남는다), 금액이 있으면 그 달 금액을 바꾼다.
 //  - 예정지출: 납부 예정일이 그 달인 것. 건너뜀은 합계에서 빠진다.
 import { addMonths, daysInMonth, diffDays, dueDay, formatYmd } from "./dates.ts";
@@ -110,7 +111,9 @@ export function monthLabel(month: string): string {
   return p ? `${p.y}년 ${p.m}월` : month;
 }
 
-type FixedForMonth = Pick<FixedExpense, "id" | "name" | "category" | "amount" | "cycle" | "billingDay" | "billingMonth" | "startDate" | "endDate" | "active" | "archived">;
+type FixedForMonth = Pick<FixedExpense, "id" | "name" | "category" | "amount" | "cycle" | "billingDay" | "billingMonth" | "startDate" | "endDate" | "active" | "archived"> & {
+  createdOn?: string | null;
+};
 
 /** 고정지출 한 건의 그 달 발생 (날짜·정의 금액). 없으면 null. 덮어쓰기는 반영하지 않는다. */
 export function fixedOccurrenceIn(item: FixedForMonth, month: string, today: string): { date: string | null; amount: number } | null {
@@ -118,6 +121,8 @@ export function fixedOccurrenceIn(item: FixedForMonth, month: string, today: str
   if (!p) return null;
   if (monthTiming(month, today) !== "past" && (!item.active || item.archived)) return null;
   const { first, last } = monthBounds(month);
+  // 시작일이 없으면 등록일(서울)이 속한 달이 하한이다 — 등록하기 전 달에 납부 기록이 생기지 않게
+  if (!item.startDate && item.createdOn && month < monthOf(item.createdOn)) return null;
   if (item.startDate && item.startDate > last) return null;
   if (item.endDate && item.endDate < first) return null;
   const within = (date: string) => (!item.startDate || date >= item.startDate) && (!item.endDate || date <= item.endDate);

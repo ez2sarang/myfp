@@ -192,6 +192,7 @@ export function ShareViewScreen({ view, basePath, pendingViewer = false }: { vie
         {view.fixed ? (
           <section aria-labelledby="share-fixed" className="flex flex-col gap-3">
             <SectionTitle id="share-fixed">고정지출</SectionTitle>
+            <p className="-mt-1 text-sm text-muted">현재 정의 기준: 공유 기간({view.period.label}) 안에 납부가 있는 항목만 고르며, 금액·종료일 등은 지금의 값입니다.</p>
             {view.fixed.length === 0 ? (
               <EmptyState title="공유된 고정지출이 없습니다" />
             ) : (

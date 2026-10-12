@@ -135,6 +135,7 @@ export interface HouseholdFixedLike {
   endDate: string | null;
   active: boolean;
   archived: boolean;
+  createdOn?: string | null;
 }
 
 /** 선택한 구성원의 그 달 발생 + 소유자 정보 (선택 밖 구성원의 항목은 계산에 넣지 않는다) */

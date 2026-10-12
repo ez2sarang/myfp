@@ -195,3 +195,19 @@ test("열람: 저장된 기간이 어긋난 링크는 다른 실패와 같은 nu
   assert.equal(await resolveShareView(f.db, token, NOW), null);
   assert.equal(f.calls.length, 1, "고정지출·예정지출 조회 없음");
 });
+
+test("보관한 고정지출은 어떤 기간 링크에도(과거 달·금액 숨김 포함) 이름·금액이 나오지 않는다. 비활성이던 항목은 그때 기간 안이면 남는다", () => {
+  const ARCHIVED = 8_181_818;
+  const items = [
+    ...fixed,
+    fx({ id: "z", name: "보관한 비활성 항목", amount: ARCHIVED, active: false, archived: true, startDate: "2026-01-01" }),
+    fx({ id: "y", name: "비활성 지난 항목", amount: 2_020, active: false, startDate: "2026-01-01" }),
+  ];
+  const past: SharePeriod = { mode: "range", start: "2026-05", end: "2026-08" };
+  for (const masks of [{ amounts: false, details: true }, { amounts: true, details: true }]) {
+    const json = JSON.stringify(buildShareView(source(past, { fixed: items, masks }), NOW));
+    assert.equal(json.includes("보관한 비활성 항목"), false, JSON.stringify(masks));
+    assert.equal(json.includes(String(ARCHIVED)), false, JSON.stringify(masks));
+    assert.ok(json.includes("비활성 지난 항목"), "비활성은 과거 기간에 남는다");
+  }
+});

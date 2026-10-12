@@ -24,6 +24,7 @@ export function PlannedTab({
         <CardHeader>
           <CardTitle>예정·일회성 지출 추가</CardTitle>
           <p className="text-sm text-muted">할부·세금 분납·일회성 지출처럼 고정지출이 아닌 것을 적어 둡니다. 분할을 2 이상으로 하면 같은 금액·같은 날짜로 매달 만들어 한 묶음으로 관리합니다.</p>
+          <p className="text-sm text-muted">요약 공유 링크에는 이번 달(또는 선택한 기간)의 예정·일회성 지출이 함께 보입니다. 이미 만든 링크에도 추가·변경이 바로 반영됩니다.</p>
         </CardHeader>
         <CardBody>
           <PlannedAddForm today={today} />

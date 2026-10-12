@@ -13,7 +13,8 @@ async function savePrivate(db: Db, userId: string, id: string, value: boolean | 
 
 export const FIXED_COLUMNS = `id::text AS id, name, category, amount::text AS amount, cycle, billing_day, billing_month, payment_method, institution,
   to_char(start_date, 'YYYY-MM-DD') AS start_date, to_char(end_date, 'YYYY-MM-DD') AS end_date, active, note, source,
-  (archived_at IS NOT NULL) AS archived, COALESCE((to_jsonb(fixed_expenses) ->> 'private')::boolean, false) AS private`;
+  (archived_at IS NOT NULL) AS archived, COALESCE((to_jsonb(fixed_expenses) ->> 'private')::boolean, false) AS private,
+  to_char((created_at AT TIME ZONE 'Asia/Seoul')::date, 'YYYY-MM-DD') AS created_on`;
 
 export interface FixedRow {
   id: string;
@@ -32,6 +33,7 @@ export interface FixedRow {
   source: ExpenseSource;
   archived: boolean;
   private?: boolean;
+  created_on?: string | null;
 }
 
 export function fixedFromRow(r: FixedRow): FixedExpense {
@@ -52,6 +54,7 @@ export function fixedFromRow(r: FixedRow): FixedExpense {
     source: r.source,
     archived: r.archived,
     private: r.private === true,
+    createdOn: r.created_on ?? null,
   };
 }
 

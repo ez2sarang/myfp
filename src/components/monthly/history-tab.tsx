@@ -13,6 +13,7 @@ export function HistoryTab({ trend, past, today }: { trend: StackData; past: rea
         <CardHeader>
           <CardTitle>월별 추이</CardTitle>
           <p className="text-sm text-muted">과거 6개월부터 이후 6개월까지. 고정지출(달별 변경 반영)과 예정·일회성을 나눠 쌓습니다. 건너뛴 지출은 빠집니다.</p>
+          <p className="text-sm text-muted">보관한 고정지출도 내 지난 달 기록에는 남지만, 공유 링크에는 기간과 상관없이 나오지 않습니다. 시작일이 없는 항목은 등록한 달부터 계산합니다.</p>
         </CardHeader>
         <CardBody>
           <StackedBarChart data={trend} title="월별 지출 추이" emptyText="표시할 지출이 없습니다." />

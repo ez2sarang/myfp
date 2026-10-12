@@ -6,7 +6,7 @@
 //  - 금액을 숨기면 차트(도넛·월별 막대·자산 구성·자산 vs 부채)와 비중(%)을 결과에 아예 넣지 않는다.
 //    비중만으로도 금액 하나를 알면 나머지를 역산할 수 있기 때문이다. 이때는 이름·분류·납부일 같은 비금액 목록만 보낸다.
 //  - 요약·고정지출 목록은 링크의 기간(이번 달·특정 달·최대 12개월 범위) 안의 달만 계산한다. 기간 밖 달의 발생·합계·차트 점은 결과에 없다.
-//    (예정지출·달별 덮어쓰기도 기간 안의 달만 반영한다.) 자산·부채는 시점 값이라 열람 시점의 현재 값이다.
+//    (예정지출·달별 덮어쓰기도 기간 안의 달만 반영한다.) 보관한 고정지출은 기간과 상관없이 빠진다. 자산·부채는 시점 값이라 열람 시점의 현재 값이다.
 import {
   assetDonut,
   assetLiabilityCompare,
@@ -164,10 +164,12 @@ export function buildShareView(source: ShareSource, now: Date, params: ShareList
     masks: { amounts: masks.amounts, details: masks.details },
     period: { mode: source.period.mode, label: periodLabel(source.period), months },
   };
-  const fixedFor = (m: string) => monthOccurrences(source.fixed, source.overrides ?? [], [], m, today);
+  // 보관(소프트 삭제)한 고정지출은 어떤 기간 링크에서도 내보내지 않는다. 비활성 항목은 과거 달에 그때 기간 안이었으면 나온다.
+  const shareable = source.fixed.filter((f) => !f.archived);
+  const fixedFor = (m: string) => monthOccurrences(shareable, source.overrides ?? [], [], m, today);
 
   if (source.scopes.includes("summary")) {
-    const perMonth = months.map((m) => ({ month: m, occurrences: monthOccurrences(source.fixed, source.overrides ?? [], source.planned ?? [], m, today) }));
+    const perMonth = months.map((m) => ({ month: m, occurrences: monthOccurrences(shareable, source.overrides ?? [], source.planned ?? [], m, today) }));
     const all: Occurrence[] = perMonth.flatMap((p) => p.occurrences);
     const sums = perMonth.map((p) => summarizeMonth(p.occurrences, p.month, today));
     const counted = all.filter((o) => !o.skipped);
@@ -237,7 +239,7 @@ export function buildShareView(source: ShareSource, now: Date, params: ShareList
   if (source.scopes.includes("fixed")) {
     // 기간 안의 달에 발생이 있는 고정지출 정의만 (이번 달·미래 달은 활성 항목, 과거 달은 그때 기간 안이던 항목)
     const inPeriod = new Set(months.flatMap((m) => fixedFor(m).map((o) => o.id)));
-    view.fixed = source.fixed
+    view.fixed = shareable
       .filter((f) => inPeriod.has(f.id))
       .map((f) => {
         const row: ShareViewFixedRow = {

@@ -99,6 +99,7 @@ export function ShareCreateForm({
             </div>
           ) : null}
           <p className="text-xs text-muted">요약·고정지출 목록에는 이 기간의 달만 들어갑니다. 자산·부채는 열람 시점의 현재 값입니다.</p>
+          <p className="text-xs text-muted">요약 공유 링크에는 이번 달(또는 선택한 기간)의 예정·일회성 지출이 함께 보입니다. 이미 만든 링크에도 추가·변경이 바로 반영됩니다.</p>
           {e.period ? (
             <p role="alert" className="text-xs font-medium text-danger">
               {e.period}
