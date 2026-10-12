@@ -38,9 +38,15 @@ flowchart LR
 | `accounts` | (provider, provider_account_id) → user_id |
 | `fixed_expenses` | user_id, name, category, amount(bigint), cycle, billing_day(1–31, 31=말일), billing_month, payment_method, institution, start/end_date, active, note, source, archived_at, external_key |
 | `balance_items` | user_id, kind(asset·liability), category, name, amount, as_of, note, monthly_payment, interest_rate, end_date, external_key |
+| `balance_snapshots` | user_id, month(YYYY-MM), assets_total, liabilities_total — 자산·부채 변경 시 그 달 행 upsert (순자산 추이) |
 | `share_links` | user_id, label, token_hash(SHA-256), scopes, masks, expires_at, revoked_at, view_count, last_viewed_at |
 | `audit_log` | actor, action, target, before/after (추가 전용) |
 
+## 차트
+
+데이터 가공은 서버의 `src/lib/finance/charts.ts`·`projection.ts`(순수 함수)가 하고, `src/components/charts/*-chart.tsx`(use client)는 숫자만 받아 그린다.
+공유 보기에서 금액을 숨기면 같은 함수의 비중(%) 변환 결과만 직렬화한다. 각 차트 옆(또는 「표로 보기」)에 같은 데이터를 목록·표로 둔다.
+
 ## 디자인 토큰
 
-색·간격·반경·타이포는 `src/app/globals.css` 의 CSS 변수와 Tailwind 4 `@theme inline` 에 있다. 값만 바꾸면 전체 룩이 바뀐다.
+색·간격·반경·타이포는 `src/app/globals.css` 의 CSS 변수와 Tailwind 4 `@theme inline` 에 있다. 값만 바꾸면 전체 룩이 바뀐다. 차트 색은 `--chart-1`…`--chart-11`, `--chart-asset`, `--chart-liability`, `--chart-grid`, `--chart-axis`.
