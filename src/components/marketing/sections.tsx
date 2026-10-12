@@ -21,6 +21,7 @@ import {
   TrendingUp,
   UserCheck,
   Users,
+  Camera,
   Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -174,6 +175,40 @@ function MonthArt() {
   );
 }
 
+// 사진으로 추가: 가상 영수증 → 확인할 후보 (장식, 숫자는 가상)
+function PhotoArt() {
+  const rows = [
+    { name: "정수기 렌탈", amount: 30_000, sure: true },
+    { name: "주차비", amount: 4_000, sure: false },
+  ];
+  return (
+    <div className="flex flex-col gap-2.5 text-xs">
+      <div className="flex gap-2.5">
+        <div className="flex w-20 shrink-0 flex-col gap-1 rounded-md border border-line bg-surface px-2 py-2">
+          <span className="text-[0.6rem] font-semibold">영수증</span>
+          <span className="h-1 rounded bg-line" />
+          <span className="h-1 w-3/4 rounded bg-line" />
+          <span className="h-1 rounded bg-line" />
+          <span className="mt-1 h-1.5 w-1/2 self-end rounded bg-line-strong" />
+        </div>
+        <ul className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {rows.map((r) => (
+            <li key={r.name} className="flex items-center gap-2 rounded-md border border-line bg-surface px-2 py-1.5">
+              <span className={cn("size-3 shrink-0 rounded-sm border", r.sure ? "border-transparent bg-brand" : "border-line-strong")} />
+              <span className="flex-1 truncate">{r.name}</span>
+              <span className={cn("num rounded px-1", !r.sure && "bg-warn-bg text-warn-ink")}>{won(r.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-muted">
+        <Lock className="size-3" />
+        사진은 내 브라우저 안에서만 처리
+      </span>
+    </div>
+  );
+}
+
 function HouseholdArt() {
   const members = [
     { tag: "나", amount: 640_000, color: "var(--chart-1)" },
@@ -301,8 +336,11 @@ export function Features() {
         <BentoCell icon={Users} title={f.household.title} body={f.household.body}>
           <HouseholdArt />
         </BentoCell>
-        <BentoCell icon={Link2} title={f.share.title} body={f.share.body} className="lg:col-span-2">
+        <BentoCell icon={Link2} title={f.share.title} body={f.share.body}>
           <ShareArt />
+        </BentoCell>
+        <BentoCell icon={Camera} title={f.photo.title} body={f.photo.body}>
+          <PhotoArt />
         </BentoCell>
         <BentoCell icon={ShieldCheck} title={f.data.title} body={f.data.body}>
           <DataArt />
