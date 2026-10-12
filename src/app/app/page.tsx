@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { DonutChart } from "@/components/charts/donut-chart";
 import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
+import { FixedDetailCard } from "@/components/detail/fixed-detail-card";
 import { Stat } from "@/components/shared/stat";
 import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,8 @@ import { listBalances } from "@/lib/db/queries/balance";
 import { listFixed } from "@/lib/db/queries/fixed";
 import { categoryDonut, projectionStack } from "@/lib/finance/charts";
 import { seoulToday } from "@/lib/finance/dates";
+import { FIXED_SORTS, fixedDetails, listHref, parseListQuery, type FixedSort } from "@/lib/finance/detail-list";
+import { EXPENSE_CATEGORIES } from "@/lib/finance/types";
 import { formatDate, formatKRW } from "@/lib/finance/format";
 import { upcomingPayments } from "@/lib/finance/schedule";
 import { debtTimeline, summarizeBalances, summarizeFixed, windowLastDay } from "@/lib/finance/summary";
@@ -19,10 +22,11 @@ import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "대시보드" };
 
-// 첫 화면: 큰 숫자 요약 → 차트(분류 도넛, 12개월 누적 막대) → 30일 일정 → 상환 타임라인.
-// 데이터 가공은 모두 서버에서 하고 차트 컴포넌트에는 숫자만 넘긴다.
-export default async function DashboardPage() {
+// 첫 화면: 큰 숫자 요약 → 분류 도넛 + 세부 항목(정렬·분류 필터, URL 쿼리 sort·dir·cat) → 12개월 누적 막대 → 30일 일정 → 상환 타임라인.
+// 데이터 가공·정렬·필터는 모두 서버에서 하고 차트 컴포넌트에는 숫자만 넘긴다.
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireActiveUser("/app");
+  const query = parseListQuery<FixedSort>(await searchParams, { sorts: FIXED_SORTS, defaultSort: "date", categories: EXPENSE_CATEGORIES });
   const [fixed, balances] = await Promise.all([listFixed(db, viewer.id), listBalances(db, viewer.id)]);
   const today = seoulToday();
   const summary = summarizeFixed(fixed, today);
@@ -32,6 +36,10 @@ export default async function DashboardPage() {
   const donut = categoryDonut(summary.byCategory);
   const projection = projectionStack(fixed, today, 12);
   const empty = fixed.length === 0 && balances.length === 0;
+  const details = fixedDetails(fixed, today, query);
+  const filterHrefs = Object.fromEntries(
+    donut.items.map((d) => [d.key, listHref("/app", "", { sort: details.query.sort, dir: details.query.dir, cat: d.key }, {}, "#detail-list")]),
+  );
 
   return (
     <>
@@ -60,15 +68,19 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>분류별 월 고정지출</CardTitle>
+            <p className="text-sm text-muted">분류를 누르면 오른쪽 목록이 그 분류만 보여 줍니다.</p>
           </CardHeader>
           <CardBody>
-            <DonutChart data={donut} centerLabel="월 합계" emptyText="활성 고정지출이 없습니다." />
+            <DonutChart data={donut} centerLabel="월 합계" emptyText="활성 고정지출이 없습니다." filterHrefs={filterHrefs} activeKey={details.query.cat} />
           </CardBody>
         </Card>
+        <FixedDetailCard details={details} action="/app#detail-list" sorts={FIXED_SORTS} />
+      </div>
+      <div className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>향후 12개월 예상 지출</CardTitle>

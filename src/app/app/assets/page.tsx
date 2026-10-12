@@ -5,6 +5,7 @@ import { BalanceForm } from "@/components/balance/balance-form";
 import { CompareBarChart } from "@/components/charts/compare-bar-chart";
 import { DonutChart } from "@/components/charts/donut-chart";
 import { TrendLineChart } from "@/components/charts/trend-line-chart";
+import { AssetDetailCard } from "@/components/detail/asset-detail-card";
 import { InlineAction } from "@/components/forms/inline-action";
 import { Stat } from "@/components/shared/stat";
 import { buttonClass } from "@/components/ui/button";
@@ -15,9 +16,10 @@ import { createBalanceAction, deleteBalanceAction } from "@/lib/actions/balance"
 import { db } from "@/lib/db/pool";
 import { listBalances, listSnapshots } from "@/lib/db/queries/balance";
 import { assetDonut, assetLiabilityCompare, netWorthTrend } from "@/lib/finance/charts";
+import { ASSET_SORTS, assetDetails, listHref, parseListQuery, type AssetSort } from "@/lib/finance/detail-list";
 import { formatDate, formatKRW } from "@/lib/finance/format";
 import { summarizeBalances } from "@/lib/finance/summary";
-import { LIMITS, balanceCategoryLabel, type BalanceItem } from "@/lib/finance/types";
+import { ASSET_CATEGORIES, LIMITS, balanceCategoryLabel, type BalanceItem } from "@/lib/finance/types";
 import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "자산·부채" };
@@ -88,11 +90,17 @@ function BalanceTable({ title, items }: { title: string; items: BalanceItem[] })
   );
 }
 
-export default async function AssetsPage() {
+export default async function AssetsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireActiveUser("/app/assets");
+  const query = parseListQuery<AssetSort>(await searchParams, { sorts: ASSET_SORTS, defaultSort: "amount", categories: ASSET_CATEGORIES });
   const [items, snapshots] = await Promise.all([listBalances(db, viewer.id), listSnapshots(db, viewer.id)]);
   const totals = summarizeBalances(items);
   const trend = netWorthTrend(snapshots);
+  const composition = assetDonut(items);
+  const details = assetDetails(items, query);
+  const filterHrefs = Object.fromEntries(
+    composition.items.map((d) => [d.key, listHref("/app/assets", "", { sort: details.query.sort, dir: details.query.dir, cat: d.key }, {}, "#detail-assets")]),
+  );
   return (
     <>
       <PageHeader title="자산·부채" description={`잔액 기준으로 기록합니다. 최대 ${LIMITS.balanceItems}건.`} />
@@ -102,15 +110,19 @@ export default async function AssetsPage() {
         <Stat label="자산 합계" value={formatKRW(totals.assetsTotal)} />
         <Stat label="부채 잔액 합계" value={formatKRW(totals.liabilitiesTotal)} />
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid items-stretch gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>자산 구성</CardTitle>
+            <p className="text-sm text-muted">분류를 누르면 오른쪽 목록이 그 분류만 보여 줍니다.</p>
           </CardHeader>
           <CardBody>
-            <DonutChart data={assetDonut(items)} centerLabel="자산 합계" emptyText="등록한 자산이 없습니다." />
+            <DonutChart data={composition} centerLabel="자산 합계" emptyText="등록한 자산이 없습니다." filterHrefs={filterHrefs} activeKey={details.query.cat} />
           </CardBody>
         </Card>
+        <AssetDetailCard details={details} action="/app/assets#detail-assets" sorts={ASSET_SORTS} />
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>자산 vs 부채</CardTitle>
@@ -119,21 +131,21 @@ export default async function AssetsPage() {
             <CompareBarChart data={assetLiabilityCompare(totals)} emptyText="등록한 자산·부채가 없습니다." />
           </CardBody>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>순자산 추이</CardTitle>
+            <p className="text-sm text-muted">자산·부채를 추가·수정할 때마다 그 달의 합계가 기록됩니다.</p>
+          </CardHeader>
+          <CardBody>
+            {trend.length >= 2 ? (
+              <TrendLineChart points={trend} />
+            ) : (
+              <p className="text-sm text-muted">{trend.length === 1 ? "이번 달 기록이 저장됐습니다. 다음 달부터 추이가 표시됩니다." : "자산·부채를 저장하면 이번 달부터 기록이 쌓이고, 다음 달부터 추이가 표시됩니다."}</p>
+            )}
+          </CardBody>
+        </Card>
       </div>
-      <Card className="mb-6 mt-4">
-        <CardHeader>
-          <CardTitle>순자산 추이</CardTitle>
-          <p className="text-sm text-muted">자산·부채를 추가·수정할 때마다 그 달의 합계가 기록됩니다.</p>
-        </CardHeader>
-        <CardBody>
-          {trend.length >= 2 ? (
-            <TrendLineChart points={trend} />
-          ) : (
-            <p className="text-sm text-muted">{trend.length === 1 ? "이번 달 기록이 저장됐습니다. 다음 달부터 추이가 표시됩니다." : "자산·부채를 저장하면 이번 달부터 기록이 쌓이고, 다음 달부터 추이가 표시됩니다."}</p>
-          )}
-        </CardBody>
-      </Card>
-      <div className="grid gap-4">
+      <div className="mt-6 grid gap-4">
         <BalanceTable title="자산" items={items.filter((b) => b.kind === "asset")} />
         <BalanceTable title="부채" items={items.filter((b) => b.kind === "liability")} />
       </div>

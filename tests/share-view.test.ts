@@ -159,3 +159,24 @@ test("금액 숨김: 자산·부채 목록 순서가 금액과 무관하다 (분
   assert.deepEqual(reversed.balances?.assets.map((r) => r.name), masked.balances?.assets.map((r) => r.name));
   assert.deepEqual(reversed.balances?.liabilities.map((r) => r.name), masked.balances?.liabilities.map((r) => r.name));
 });
+
+test("세부 목록: 금액 숨김이면 sort=amount 를 요청해도 이름순이고 행·직렬화에 금액이 없다. 금액순은 정렬 선택지에도 없다", () => {
+  const items: FixedExpense[] = [
+    { ...fixed[0]!, id: "1", name: "다 항목", amount: 9_191_919 },
+    { ...fixed[0]!, id: "2", name: "가 항목", amount: 1_212_121 },
+    { ...fixed[0]!, id: "3", name: "나 항목", amount: 5_454_545 },
+  ];
+  const masked = buildShareView(source({ fixed: items, masks: { amounts: true, details: true } }), NOW, { sort: "amount", dir: "asc" });
+  assert.equal(masked.summary?.details.query.sort, "name");
+  assert.deepEqual(masked.summary?.details.rows.map((r) => r.name), ["가 항목", "나 항목", "다 항목"]);
+  assert.ok(!(masked.summary?.sorts as readonly string[]).includes("amount"));
+  assert.ok(masked.summary?.details.rows.every((r) => r.amount === null));
+  const json = JSON.stringify(masked);
+  for (const v of ["9191919", "1212121", "5454545"]) assert.equal(json.includes(v), false, v);
+  const assetsMasked = buildShareView(source({ masks: { amounts: true, details: true } }), NOW, { asort: "amount" });
+  assert.equal(assetsMasked.balances?.details.query.sort, "name");
+  assert.ok(!(assetsMasked.balances?.sorts as readonly string[]).includes("amount"));
+  // 금액을 숨기지 않으면 금액순이 그대로 동작한다
+  const open = buildShareView(source({ fixed: items }), NOW, { sort: "amount", dir: "desc" });
+  assert.deepEqual(open.summary?.details.rows.map((r) => r.amount), [9_191_919, 5_454_545, 1_212_121]);
+});

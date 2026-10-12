@@ -14,10 +14,17 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function SharePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await connection();
   const { token } = await params;
-  const view = await resolveShareView(db, token).catch(() => null);
+  // 세부 목록의 정렬·필터 쿼리. 값은 buildShareView 가 허용 목록으로 다시 검증한다.
+  const view = await resolveShareView(db, token, new Date(), await searchParams).catch(() => null);
   if (!view) notFound();
-  return <ShareViewScreen view={view} />;
+  return <ShareViewScreen view={view} basePath={`/s/${token}`} />;
 }

@@ -17,6 +17,20 @@ import {
   type StackData,
 } from "../finance/charts.ts";
 import { seoulToday } from "../finance/dates.ts";
+import {
+  ASSET_SORTS,
+  FIXED_SORTS,
+  MASKED_ASSET_SORTS,
+  MASKED_FIXED_SORTS,
+  assetDetails,
+  fixedDetails,
+  parseListQuery,
+  type AssetDetails,
+  type AssetSort,
+  type FixedDetails,
+  type FixedSort,
+} from "../finance/detail-list.ts";
+import { ASSET_CATEGORIES, EXPENSE_CATEGORIES } from "../finance/types.ts";
 import { formatBillingDay } from "../finance/format.ts";
 import { monthlyEquivalent } from "../finance/schedule.ts";
 import { summarizeBalances, summarizeFixed } from "../finance/summary.ts";
@@ -59,6 +73,9 @@ export interface ShareView {
   masks: ShareMasks;
   summary?: {
     charts: { categories: DonutData; projection: StackData };
+    /** 세부 항목(정렬·필터 적용). 금액을 숨기면 행에 금액이 없고 금액순을 쓸 수 없다 */
+    details: FixedDetails;
+    sorts: readonly FixedSort[];
     activeCount: number;
     monthlyTotal: number | null;
     annualTotal: number | null;
@@ -68,6 +85,8 @@ export interface ShareView {
   fixed?: ShareViewFixedRow[];
   balances?: {
     charts: { composition: DonutData; compare: CompareData };
+    details: AssetDetails;
+    sorts: readonly AssetSort[];
     assets: ShareViewBalanceRow[];
     liabilities: ShareViewBalanceRow[];
     assetsTotal: number | null;
@@ -85,7 +104,10 @@ export interface ShareSource {
   balances: readonly BalanceItem[];
 }
 
-export function buildShareView(source: ShareSource, now: Date): ShareView {
+/** 세부 목록 쿼리(sort·dir·cat, 자산은 asort·adir·acat). 허용 목록 밖의 값은 무시한다. */
+export type ShareListParams = Readonly<Record<string, string | string[] | undefined>>;
+
+export function buildShareView(source: ShareSource, now: Date, params: ShareListParams = {}): ShareView {
   const { masks } = source;
   const today = seoulToday(now);
   const money = (value: number | null): number | null => (masks.amounts ? null : value);
@@ -102,7 +124,12 @@ export function buildShareView(source: ShareSource, now: Date): ShareView {
     const slices = masks.amounts ? [...s.byCategory].sort((a, b) => a.label.localeCompare(b.label, "ko")) : s.byCategory;
     const categories = categoryDonut(s.byCategory);
     const projection = projectionStack(visibleFixed, today, 12);
+    // 금액을 숨기면 금액순을 허용하지 않고 기본 정렬을 이름순으로 고정한다(요청에 금액순이 있어도 무시).
+    const fixedSorts = masks.amounts ? MASKED_FIXED_SORTS : FIXED_SORTS;
+    const fixedQuery = parseListQuery<FixedSort>(params, { sorts: fixedSorts, defaultSort: masks.amounts ? "name" : "date", categories: EXPENSE_CATEGORIES });
     view.summary = {
+      details: fixedDetails(visibleFixed, today, fixedQuery, { hideAmounts: masks.amounts, hideDetails: masks.details }),
+      sorts: fixedSorts,
       charts: masks.amounts
         ? { categories: donutAsPercent(categories), projection: stackAsPercent(projection) }
         : { categories, projection },
@@ -162,7 +189,11 @@ export function buildShareView(source: ShareSource, now: Date): ShareView {
             balanceCategoryLabel(a.kind, a.category).localeCompare(balanceCategoryLabel(b.kind, b.category), "ko") || a.name.localeCompare(b.name, "ko"),
         )
       : source.balances;
+    const assetSorts = masks.amounts ? MASKED_ASSET_SORTS : ASSET_SORTS;
+    const assetQuery = parseListQuery<AssetSort>(params, { sorts: assetSorts, defaultSort: masks.amounts ? "name" : "amount", categories: ASSET_CATEGORIES, prefix: "a" });
     view.balances = {
+      details: assetDetails(source.balances, assetQuery, { hideAmounts: masks.amounts, hideDetails: masks.details }),
+      sorts: assetSorts,
       charts: masks.amounts ? { composition: donutAsPercent(composition), compare: compareAsPercent(compare) } : { composition, compare },
       assets: ordered.filter((b) => b.kind === "asset").map(toRow),
       liabilities: ordered.filter((b) => b.kind === "liability").map(toRow),

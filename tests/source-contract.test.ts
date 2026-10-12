@@ -47,7 +47,13 @@ test("공유 보기에는 쓰기 경로가 없다: 서버 액션·폼·POST 핸�
   assert.match(page, /await connection\(\)/);
   assert.match(page, /if \(!view\) notFound\(\);/);
   const view = readCode("src/components/share/share-view.tsx");
-  assert.doesNotMatch(view, /use server|use client|<form|action=/);
+  assert.doesNotMatch(view, /use server|use client|<form/);
+  // 공유 보기의 정렬·필터 컨트롤은 GET 폼뿐이다 (서버 액션·POST 없음)
+  const controls = readCode("src/components/detail/list-controls.tsx");
+  assert.doesNotMatch(controls, /use server|use client|method="post"/i);
+  const forms = controls.match(/<form\b[^>]*>/g) ?? [];
+  assert.ok(forms.length >= 3);
+  for (const f of forms) assert.match(f, /method="get"/, f);
 });
 
 test("서버 액션이 아닌 곳에서 next/headers cookies() 로 세션을 직접 읽지 않는다 (세션 판정은 session.ts 한 곳)", () => {
