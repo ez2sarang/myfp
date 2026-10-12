@@ -2,8 +2,12 @@
 // 캔버스 픽셀에는 EXIF(GPS 포함)가 없다. 나중에 썸네일·첨부를 저장하게 되면 encodeJpeg 의 재인코딩본만 쓴다(APP1 Exif·XMP 가 없음을 확인한다).
 import { fitWithin, MAX_SIDE } from "./pipeline.ts";
 
+/** 사진 한 장 크기 상한(디코딩 전에 거른다). 화면에는 20MB 로 안내하고 여유를 둔다 */
+export const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
+
 /** 방향 보정 + 축소한 ImageBitmap (워커로 transfer 한다) */
 export async function prepareBitmap(file: Blob, maxSide = MAX_SIDE): Promise<ImageBitmap> {
+  if (file.size > MAX_PHOTO_BYTES) throw new Error("사진이 너무 큽니다.");
   const source = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
     const { width, height } = fitWithin(source.width, source.height, maxSide);

@@ -1,7 +1,7 @@
 // 인식 글자 정규화: 금액(형식·오인식 보정·만 단위), 날짜(세 형식·연도 추정·말일), 할부·취소 신호. 가상 값만 사용.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { amountsIn, dateFromDay, isCancelText, parseAmount, parseDate, parseInstallment } from "../src/lib/import/normalize.ts";
+import { MAX_TEXT, amountsIn, dateFromDay, isCancelText, parseAmount, parseDate, parseInstallment } from "../src/lib/import/normalize.ts";
 
 const TODAY = "2026-10-12";
 
@@ -87,4 +87,16 @@ test("할부·취소 신호", () => {
   assert.equal(parseInstallment("7/6회"), null);
   assert.equal(isCancelText("승인취소"), true);
   assert.equal(isCancelText("승인"), false);
+});
+
+test("적대적 공백 입력: 공백을 접고 길이를 잘라 역추적 없이 바로 끝난다 (넉넉한 상한 1회 확인)", () => {
+  const nasty = `1${" ".repeat(50_000)}x`;
+  const started = performance.now();
+  assert.equal(parseAmount(nasty), null);
+  assert.deepEqual(amountsIn(`-${"\t ".repeat(20_000)}`), []);
+  assert.equal(parseDate(nasty, TODAY), null);
+  assert.ok(performance.now() - started < 2000, "2초 상한");
+  // 접은 뒤 길이 상한 밖의 금액은 보지 않는다
+  assert.deepEqual(amountsIn(`${"가".repeat(MAX_TEXT)} 12,000원`), []);
+  assert.deepEqual(amountsIn("점심    12,000 원").map((a) => [a.value, a.hasWon, a.start, a.end]), [[12000, true, 2, 11]]);
 });

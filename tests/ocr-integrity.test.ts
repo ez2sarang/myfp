@@ -1,7 +1,7 @@
 // 사진 인식(OCR) 자산 무결성: 크기·SHA-256 이 매니페스트와 다르면 세션을 만들지 않는다. 같은 출처 경로만 받는다. (합성 바이트만 사용)
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { createVerifiedSession, fetchVerified, IntegrityError, isSameOriginPath, sha256Hex, type AssetSpec, type Fetcher } from "../src/lib/ocr/integrity.ts";
 
@@ -82,4 +82,20 @@ test("매니페스트: 모든 자산이 /ocr/ 아래, 파일명에 SHA-256 앞 8
   const dict = readFileSync(new URL(`../public${manifest.models.dict.file}`, import.meta.url), "utf8");
   assert.equal(dict.split("\n").length, manifest.models.dict.count);
   assert.equal(manifest.ort.version, JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).dependencies["onnxruntime-web"]);
+});
+
+test("워커는 wasmPaths 를 설정하지 않고(번들 내장 글루 + 확인한 wasmBinary 만), public/ocr/ort 에는 매니페스트의 wasm 말고 아무것도 없다", () => {
+  // wasmPaths 접두사를 주면 ORT 가 <접두사>/ort-wasm-simd-threaded.mjs 를 동적으로 불러온다 — 확인하지 않은 스크립트가 워커에서 돈다
+  const worker = readFileSync(new URL("../src/lib/ocr/ocr.worker.ts", import.meta.url), "utf8").replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(worker, /wasmPaths/);
+  assert.match(worker, /ort\.env\.wasm\.wasmBinary = wasm;/);
+  const manifest = JSON.parse(readFileSync(new URL("../src/lib/ocr/ocr-models.json", import.meta.url), "utf8"));
+  const dir = new URL("../public/ocr/ort/", import.meta.url);
+  const files = existsSync(dir) ? readdirSync(dir) : [];
+  assert.ok(files.every((f) => `/ocr/ort/${f}` === manifest.ort.wasm.file), files.join(", "));
+  assert.ok(!files.some((f) => f.endsWith(".mjs") || f.endsWith(".js")));
+  // 복사 스크립트도 매니페스트의 wasm 한 파일만 쓴다
+  const copy = readFileSync(new URL("../scripts/copy-ort.mjs", import.meta.url), "utf8");
+  assert.equal((copy.match(/writeFileSync\(/g) ?? []).length, 1);
+  assert.doesNotMatch(copy, /\.mjs["']/);
 });

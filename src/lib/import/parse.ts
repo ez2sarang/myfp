@@ -288,7 +288,7 @@ export function parseBillTable(lines: readonly OcrLineInput[], ctx: CaptureConte
     const pick = amountX === undefined ? withAmount.at(-1)! : withAmount.reduce((b, v) => (Math.abs(v.x.cx - amountX) < Math.abs(b.x.cx - amountX) ? v : b));
     const names = row.filter((x) => x !== pick.x && hasHangul(x.text) && !parseAmount(x.text));
     const nameItem = nameX === undefined ? names[0] : names.sort((a, b) => Math.abs(a.cx - nameX) - Math.abs(b.cx - nameX))[0];
-    const name = nameItem?.text ?? pick.x.text.slice(0, pick.a!.start).trim();
+    const name = nameItem?.text ?? pick.x.text.replace(/\s+/g, " ").slice(0, pick.a!.start).trim();
     if (!hasHangul(name)) continue;
     const isTotal = BILL_TOTAL.test(joinText(row));
     drafts.push(

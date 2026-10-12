@@ -15,9 +15,13 @@ export interface AmountResult {
   hasWon: boolean;
 }
 
+// 정규식 역추적을 막으려고 입구에서 공백을 하나로 접고 길이를 자른다(인식 줄 하나는 이보다 짧다). 접은 뒤라 공백은 ' ?' 하나면 된다.
+export const MAX_TEXT = 200;
+const fold = (text: string): string => text.replace(/\s+/g, " ").slice(0, MAX_TEXT);
+
 const CORE = String.raw`\d(?:[\d,.'’OolI|]*\d)?`;
-const WHOLE_AMOUNT = new RegExp(String.raw`^([-−]?)\s*₩?\s*([-−]?)\s*(${CORE})\s*(원?)$`);
-const ANY_AMOUNT = new RegExp(String.raw`([-−]?)\s*₩?\s*(${CORE})\s*(만\s*원|만|원)?`, "g");
+const WHOLE_AMOUNT = new RegExp(String.raw`^([-−]?) ?₩? ?([-−]?) ?(${CORE}) ?(원?)$`);
+const ANY_AMOUNT = new RegExp(String.raw`([-−]?) ?₩? ?(${CORE}) ?(만 ?원|만|원)?`, "g");
 
 function readCore(core: string): { value: number; corrected: boolean; valid: boolean } {
   const fixed = core.replace(/[Oo]/g, "0").replace(/[lI|]/g, "1");
@@ -37,7 +41,7 @@ function readCore(core: string): { value: number; corrected: boolean; valid: boo
 
 /** 글자 전체가 금액 하나일 때 (카드 앱의 `12,000원` 상자 등). 아니면 null */
 export function parseAmount(text: string): AmountResult | null {
-  const m = WHOLE_AMOUNT.exec(text.trim());
+  const m = WHOLE_AMOUNT.exec(fold(text).trim());
   if (!m) return null;
   const core = readCore(m[3] as string);
   return { ...core, negative: Boolean(m[1] || m[2]), hasWon: m[4] === "원" };
@@ -48,11 +52,14 @@ export interface AmountMatch extends AmountResult {
   end: number;
 }
 
-/** 글자 안의 금액 후보 전부(왼→오른). outsideParens 이면 괄호 안은 건너뛴다. 만 단위(30만원)는 ×10,000 */
-export function amountsIn(text: string, { outsideParens = false } = {}): AmountMatch[] {
+/** 글자 안의 금액 후보 전부(왼→오른). outsideParens 이면 괄호 안은 건너뛴다. 만 단위(30만원)는 ×10,000.
+ *  start·end 는 공백을 접은 글자 기준이다(이미 접은 글자를 넘기면 원문 위치와 같다). */
+export function amountsIn(raw: string, { outsideParens = false } = {}): AmountMatch[] {
+  const text = fold(raw);
   const depthAt: number[] = [];
   let depth = 0;
-  for (const ch of text) {
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
     if (ch === "(" || ch === "（") depth += 1;
     depthAt.push(depth);
     if ((ch === ")" || ch === "）") && depth > 0) depth -= 1;
@@ -99,7 +106,8 @@ const DATE_FORMATS: { format: DateResult["format"]; re: RegExp }[] = [
 ];
 
 /** 글자 안의 첫 날짜 (세 형식 중 가장 앞에 나오는 것) */
-export function parseDate(text: string, today: string): DateResult | null {
+export function parseDate(raw: string, today: string): DateResult | null {
+  const text = fold(raw);
   const base = parseYmd(today);
   if (!base) throw new Error("today 는 YYYY-MM-DD 여야 합니다.");
   let best: { format: DateResult["format"]; m: RegExpExecArray } | null = null;

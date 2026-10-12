@@ -19,8 +19,9 @@ let ready: Promise<{ models: OcrModels; labels: string[] }> | null = null;
 
 async function load() {
   const wasm = await fetchVerified(manifest.ort.wasm, fetcher);
+  // 확인한 wasm 바이트만 넘긴다. wasmPaths 는 설정하지 않는다: 접두사를 주면 ORT 가 번들에 든 JS 글루 대신
+  // <접두사>/ort-wasm-simd-threaded.mjs 를 동적으로 불러오는데, 그 파일은 매니페스트로 확인하지 않은 스크립트라 두지 않는다.
   ort.env.wasm.wasmBinary = wasm;
-  ort.env.wasm.wasmPaths = "/ocr/ort/";
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
   const options: ort.InferenceSession.SessionOptions = { executionProviders: ["wasm"], graphOptimizationLevel: "all" };

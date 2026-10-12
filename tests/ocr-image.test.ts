@@ -1,7 +1,7 @@
 // 사진 메타데이터: 재인코딩 결과 JPEG 에 APP1(Exif·XMP) 조각이 없어야 쓴다. (합성 바이트만 사용)
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { encodeJpeg, hasApp1Metadata } from "../src/lib/ocr/prepare-image.ts";
+import { MAX_PHOTO_BYTES, encodeJpeg, hasApp1Metadata, prepareBitmap } from "../src/lib/ocr/prepare-image.ts";
 
 const ascii = (s: string) => Array.from(s, (c) => c.charCodeAt(0));
 const segment = (marker: number, payload: number[]) => [0xff, marker, ((payload.length + 2) >> 8) & 0xff, (payload.length + 2) & 0xff, ...payload];
@@ -41,4 +41,10 @@ test("encodeJpeg: 재인코딩 결과에 APP1 이 없을 때만 Blob 을 돌려�
   assert.equal(hasApp1Metadata(new Uint8Array(await blob.arrayBuffer())), false);
   await assert.rejects(encodeJpeg(fakeCanvas(jpeg(SOI, APP1_EXIF, DQT, SOS_AND_SCAN, EOI))));
   await assert.rejects(encodeJpeg(fakeCanvas(clean, "image/png")));
+});
+
+test("사진 크기 상한(25MB)을 넘으면 디코딩하기 전에 거절한다", async () => {
+  assert.equal(MAX_PHOTO_BYTES, 25 * 1024 * 1024);
+  // Node 에는 createImageBitmap 이 없다: 상한 검사가 먼저가 아니면 ReferenceError 가 난다
+  await assert.rejects(prepareBitmap(new Blob([new Uint8Array(MAX_PHOTO_BYTES + 1)])), /너무 큽니다/);
 });

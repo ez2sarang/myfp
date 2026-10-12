@@ -73,6 +73,8 @@ function parseItem(raw: unknown, isPrivate: boolean, today: string): { ok: true;
   }
   const asOf = optional(raw.asOf, str);
   if (asOf === undefined) return { ok: false, message: "기준일 형식이 올바르지 않습니다." };
+  // 인식으로 추정한 연도가 어긋나 미래 날짜가 되는 경우를 막는다(잔액의 기준일은 오늘 이후일 수 없다)
+  if (asOf > today) return { ok: false, message: "기준일은 오늘 이후일 수 없습니다." };
   const kind = target === "asset" ? "asset" : "liability";
   const parsed = parseBalanceInput({ kind, category, name, amount, as_of: asOf, private: isPrivate ? "on" : "" });
   return parsed.ok ? { ok: true, item: { target: target as "asset" | "liability", input: parsed.value } } : { ok: false, message: first(parsed.errors) };

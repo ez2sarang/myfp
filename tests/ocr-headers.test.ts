@@ -127,7 +127,7 @@ test("/ocr/* 자산은 1년 불변 캐시(private, 공유 캐시 제외), 다른
   assert.equal(effective(list, "/app").has("Cache-Control"), false);
 });
 
-function checkWorker(files: Record<string, string> | null) {
+function checkWorker(files: Record<string, string> | null, srcFiles?: Record<string, string>) {
   const dir = mkdtempSync(path.join(tmpdir(), "myfp-ocr-worker-"));
   try {
     const chunks = path.join(dir, "chunks");
@@ -135,7 +135,14 @@ function checkWorker(files: Record<string, string> | null) {
       spawnSync("mkdir", [chunks]);
       for (const [name, body] of Object.entries(files)) writeFileSync(path.join(chunks, name), body);
     }
-    const out = spawnSync(process.execPath, [path.join(root, "scripts/check-ocr-worker.mjs"), chunks], { encoding: "utf8" });
+    const args = [path.join(root, "scripts/check-ocr-worker.mjs"), chunks];
+    if (srcFiles) {
+      const src = path.join(dir, "src");
+      spawnSync("mkdir", [src]);
+      for (const [name, body] of Object.entries(srcFiles)) writeFileSync(path.join(src, name), body);
+      args.push(src);
+    }
+    const out = spawnSync(process.execPath, args, { encoding: "utf8" });
     return { status: out.status, output: `${out.stdout}${out.stderr}` };
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -158,4 +165,14 @@ test("빌드 뒤 확인: 진입 파일이 규칙과 맞고 앱이 참조할 때�
   const missing = checkWorker(null);
   assert.equal(missing.status, 1);
   assert.match(missing.output, /청크 폴더가 없습니다/);
+});
+
+test("빌드 뒤 확인: 워커 CSP 예외는 모든 Turbopack 워커에 적용되므로 소스에서 워커를 만드는 곳은 OCR 워커 한 곳뿐이어야 한다", () => {
+  const chunks = { "turbopack-worker-abc123.js": "w", "41-page.js": `x("static/chunks/turbopack-worker-abc123.js")` };
+  const ocr = `const w = new Worker(new URL("../../lib/ocr/ocr.worker.ts", import.meta.url), { type: "module" });`;
+  assert.equal(checkWorker(chunks, { "a.tsx": ocr }).status, 0);
+  const two = checkWorker(chunks, { "a.tsx": ocr, "b.ts": `new Worker(new URL("./other.worker.ts", import.meta.url));` });
+  assert.equal(two.status, 1);
+  assert.match(two.output, /OCR 워커 한 곳이어야 합니다\(지금 2곳/);
+  assert.equal(checkWorker(chunks, { "b.ts": `new Worker(new URL("./other.worker.ts", import.meta.url));` }).status, 1, "OCR 워커가 아닌 워커");
 });
