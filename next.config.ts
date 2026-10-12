@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -107,6 +109,10 @@ const OCR_WORKER_CONTENT_SECURITY_POLICY = [
 // proxy 가 Cache-Control: no-store 로 덮어쓴다(src/proxy.ts).
 const ocrAssetHeaders = [{ key: "Cache-Control", value: "private, max-age=31536000, immutable" }];
 
+function ogImagesPresent(): string {
+  return ["share", "invite"].filter((name) => existsSync(path.join(process.cwd(), "public", "og", `${name}.png`))).join(",");
+}
+
 // 서버 액션의 Origin 허용 호스트: 배포 주소(AUTH_URL)의 호스트. 프록시 뒤에서 요청 호스트가 달라도 이 호스트에서 온 액션은 받는다.
 // (Origin 이 없는 요청의 거부는 src/lib/http 의 assertSameOrigin 이 맡는다. Next 자체는 Origin 이 없으면 경고만 하고 실행한다.)
 function authHost(): string[] {
@@ -121,7 +127,8 @@ function authHost(): string[] {
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // 광고 켜짐 여부를 빌드 상수로 고정한다. off 빌드에서는 광고 단위(클라이언트) 코드를 불러오는 분기가 죽은 코드가 되어 번들에서 빠진다(src/components/ads/ad-slot.tsx).
-  env: { MYFP_ADS_SERVE_BUILD: adsServe() ? "1" : "0" },
+  // 링크 미리보기 이미지(public/og/<이름>.png)가 있는 것만 로그인 메타데이터에 넣는다(없으면 이미지 없이 동작). 규약: 1200×630·200KB 이하(시험).
+  env: { MYFP_ADS_SERVE_BUILD: adsServe() ? "1" : "0", MYFP_OG_IMAGES: ogImagesPresent() },
   experimental: { serverActions: { allowedOrigins: authHost() } },
   // 이미지 최적화 API 를 쓰지 않는다 (래스터 이미지가 없고, 해당 API 의 알려진 취약점 노출면을 없앤다).
   images: { unoptimized: true },

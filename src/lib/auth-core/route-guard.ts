@@ -24,7 +24,8 @@ const PUBLIC_EXACT: ReadonlySet<string> = new Set([
 
 // 접두사 + "/" 경계까지 일치해야 공개
 // 공유 보기 /s/<토큰> 은 공개가 아니다: 세션이 없으면 토큰 유효 여부와 상관없이 똑같이 로그인으로 보낸다(존재 오라클 없음).
-const PUBLIC_PREFIXES: readonly string[] = ["/api/auth", "/_next", "/brand"];
+// /og/: 링크 미리보기 이미지(비밀 없는 정적 파일) — 비로그인 미리보기 크롤러가 받아야 한다
+const PUBLIC_PREFIXES: readonly string[] = ["/api/auth", "/_next", "/brand", "/og"];
 
 // 공개 가이드 글: /guide/<slug> 한 단계만 (slug 는 소문자·숫자·하이픈). 더 깊은 경로·대문자는 공개가 아니다.
 const PUBLIC_GUIDE_ARTICLE = /^\/guide\/[a-z0-9-]+$/;

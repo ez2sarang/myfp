@@ -8,14 +8,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { safeCallbackPath } from "@/lib/auth-core/callback-url";
 import { credentialsEnabled } from "@/lib/auth-core/credentials";
+import { loginMetadata, previewKind } from "@/lib/auth-core/login-preview";
 import { loginErrorMessage } from "@/lib/auth-core/login-errors";
 import { getViewer } from "@/lib/session";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
-export const metadata: Metadata = { title: "로그인", robots: { index: false, follow: false } };
-
 type Params = Promise<Record<string, string | string[] | undefined>>;
 const first = (v: string | string[] | undefined): string => (Array.isArray(v) ? (v[0] ?? "") : (v ?? ""));
+
+// 링크 미리보기: 초대(/join/…)·공유(/s/…) 링크를 비로그인으로 열면 이 화면으로 오므로, callbackUrl 의 종류만 보고 일반 문구를 고른다
+// (토큰·주소는 메타데이터에 넣지 않는다 — src/lib/auth-core/login-preview.ts). 검색 노출은 계속 막는다(noindex).
+export async function generateMetadata({ searchParams }: { searchParams: Params }): Promise<Metadata> {
+  const sp = await searchParams;
+  return loginMetadata(previewKind(first(sp.callbackUrl)));
+}
 
 export default async function LoginPage({ searchParams }: { searchParams: Params }) {
   const sp = await searchParams;
