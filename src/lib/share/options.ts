@@ -4,7 +4,7 @@ import { expiryFrom } from "./token.ts";
 
 export const SHARE_SCOPES = ["summary", "fixed", "balances"] as const;
 export type ShareScope = (typeof SHARE_SCOPES)[number];
-export const SHARE_SCOPE_LABELS: Record<ShareScope, string> = { summary: "대시보드 요약", fixed: "고정지출 목록", balances: "자산·부채" };
+export const SHARE_SCOPE_LABELS: Record<ShareScope, string> = { summary: "대시보드 요약(세부 항목 포함)", fixed: "고정지출 목록", balances: "자산·부채" };
 
 export interface ShareMasks {
   /** 모든 금액을 숨긴다 */

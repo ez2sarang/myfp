@@ -95,3 +95,10 @@ test("공유 보기 가드: 페이지는 토큰 조회보다 먼저 requireShare
   assert.match(session, /export async function requireActiveUser[\s\S]*?if \(gate !== "ok"\) redirect\(PENDING_PATH\);/, "requireActiveUser 는 pending 을 계속 막는다");
   assert.match(session, /export async function requireShareViewer[\s\S]*?decideShareAccess\(viewer\)/);
 });
+
+test("도넛 범례의 필터 링크는 미리 가져오기를 하지 않는다 (prefetch={false}: 공유 보기에서 화면에 보이기만 해도 요청이 나가지 않게)", () => {
+  const code = readCode("src/components/charts/donut-chart.tsx");
+  const links = code.match(/<Link\b[\s\S]*?>/g) ?? [];
+  assert.ok(links.length >= 1);
+  for (const l of links) assert.match(l, /prefetch=\{false\}/, l);
+});

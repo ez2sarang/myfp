@@ -177,3 +177,19 @@ test("계정 삭제: 마지막 활성 관리자는 거부하고 아무것도 지
   const gone = fakeDb((c) => (c.text.includes("role = 'admin'") ? { rows: [] } : { rows: [], rowCount: 0 }));
   assert.deepEqual(await deleteAccount(gone.db, ME), { ok: false, reason: "not_found" });
 });
+
+test("계정 삭제: 활성 관리자 조회가 FOR UPDATE 로 잠그고, 본인 조회·어떤 삭제보다 먼저 실행된다 (동시 자기 삭제로 관리자 0명 방지)", async () => {
+  const f = fakeDb((c) => {
+    if (c.text.includes("role = 'admin' AND status = 'active'")) return { rows: [{ id: "admin-1" }] };
+    if (c.text.startsWith("SELECT role, status FROM myfp.users")) return { rows: [{ role: "member", status: "active" }] };
+    return { rows: [], rowCount: 1 };
+  });
+  await deleteAccount(f.db, ME);
+  const adminIdx = f.calls.findIndex((c) => c.text.includes("role = 'admin' AND status = 'active'"));
+  const selfIdx = f.calls.findIndex((c) => c.text.startsWith("SELECT role, status FROM myfp.users"));
+  const firstDelete = f.calls.findIndex((c) => c.text.startsWith("DELETE"));
+  assert.equal(adminIdx, 0, "첫 쿼리가 관리자 잠금");
+  assert.match(f.calls[adminIdx]!.text, /FOR UPDATE$/);
+  assert.match(f.calls[selfIdx]!.text, /FOR UPDATE$/);
+  assert.ok(adminIdx < selfIdx && selfIdx < firstDelete);
+});

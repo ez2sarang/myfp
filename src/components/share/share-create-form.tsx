@@ -57,8 +57,11 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-semibold">포함할 항목</legend>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="scope_summary" defaultChecked className="size-4" /> 대시보드 요약
+            <input type="checkbox" name="scope_summary" defaultChecked className="size-4" /> 대시보드 요약(세부 항목 포함)
           </label>
+          <p className="ml-6 text-xs text-muted">
+            요약에는 효력 있는 모든 고정지출의 세부 목록(이름·분류·납부일·결제수단·종료일, 금액 표시 링크면 금액)이 함께 보입니다.
+          </p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="scope_fixed" defaultChecked className="size-4" /> 고정지출 목록
           </label>

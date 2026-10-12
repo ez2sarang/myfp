@@ -106,3 +106,15 @@ test("열람 대상: audience 가 없거나 members 면 허용, designated(아�
   await resolveShareView(f.db, token, NOW, {}, VIEWER);
   assert.match(f.calls[0]!.text, /to_jsonb\(s\) ->> 'audience' AS audience/, "0003 적용 전에도 깨지지 않는 조회");
 });
+
+test("열람 집계는 첫 진입만: 목록 정렬·필터 쿼리(sort·dir·cat·asort·adir·acat)가 하나라도 있으면 세지 않는다", async () => {
+  const { token } = generateShareToken();
+  for (const params of [{ sort: "name" }, { dir: "desc" }, { cat: "telecom" }, { asort: "asOf" }, { adir: "asc" }, { acat: "cash" }, { sort: "bogus" }]) {
+    const f = db(linkRow());
+    assert.ok(await resolveShareView(f.db, token, NOW, params, VIEWER), JSON.stringify(params));
+    assert.equal(f.calls.some((c) => c.text.includes("view_count = view_count + 1")), false, JSON.stringify(params));
+  }
+  const first = db(linkRow());
+  await resolveShareView(first.db, token, NOW, { unrelated: "1" }, VIEWER);
+  assert.equal(first.calls.some((c) => c.text.includes("view_count = view_count + 1")), true, "목록 쿼리가 없으면 센다");
+});

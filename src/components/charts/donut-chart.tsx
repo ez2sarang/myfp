@@ -65,6 +65,7 @@ export function DonutChart({
               <Link
                 href={filterHrefs[d.key] as string}
                 scroll={false}
+                prefetch={false}
                 aria-current={activeKey === d.key ? "true" : undefined}
                 className={`flex-1 underline-offset-4 hover:underline ${activeKey === d.key ? "font-bold" : ""}`}
               >
