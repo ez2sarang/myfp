@@ -16,6 +16,7 @@ export const AUDIT_ACTIONS = [
   "household.leave",
   "household.remove",
   "household.delete",
+  "import.photo",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

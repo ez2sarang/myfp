@@ -111,6 +111,10 @@ const ACTION_FILES: Record<string, { guard: RegExp; actions: string[] }> = {
       "deleteHouseholdAction",
     ],
   },
+  "src/lib/actions/import.ts": {
+    guard: /requireActiveUser\(/,
+    actions: ["registerImportAction"],
+  },
   "src/lib/actions/monthly.ts": {
     guard: /requireActiveUser\(/,
     actions: ["createPlannedAction", "updatePlannedAction", "setPlannedStatusAction", "deletePlannedAction", "setOverrideAction", "clearOverrideAction"],
