@@ -38,7 +38,9 @@ export type Reason =
   | "no-amount"
   | "format" // 금액 형식 위반
   | "day-range" // 일 > 그 달 말일
-  | "handwriting";
+  | "handwriting"
+  | "day-order" // 손글씨: 일이 바로 위 행보다 작다(교정하지 않고 경고만)
+  | "total-mismatch"; // 손글씨: 행 금액 합 ≠ 적어 둔 합계
 
 export type Suggestion =
   | { kind: "fixed"; category: ExpenseCategory }

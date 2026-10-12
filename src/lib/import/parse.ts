@@ -40,6 +40,9 @@ export interface Draft {
 
 const MAX_SKEW = (8 * Math.PI) / 180;
 
+/** 금액 합(취소·음수는 뺀다). 영수증·고지서·손글씨 합계 검사가 함께 쓴다 */
+const signedSum = (amounts: readonly AmountResult[]) => amounts.reduce((s, a) => s + a.value * (a.negative ? -1 : 1), 0);
+
 /** 기울기 보정한 상자들. 각도 = 가로가 세로의 2배 넘는 상자의 윗변 각도 중앙값(±8도로 자름) */
 export function layoutItems(lines: readonly OcrLineInput[]): Item[] {
   const angles = lines
@@ -250,8 +253,7 @@ export function parseReceipt(lines: readonly OcrLineInput[], ctx: CaptureContext
       .filter((t) => hasHangul(t) && !NOT_ITEM.test(t) && !parseDate(t, ctx.today))
       .map((t) => amountsIn(t).filter((a) => a.valid).at(-1))
       .filter((a) => a !== undefined);
-    const sum = itemAmounts.reduce((s, a) => s + a.value * (a.negative ? -1 : 1), 0);
-    if (itemAmounts.length > 0 && sum !== total.amount.value) extraReasons.push("sum-mismatch");
+    if (itemAmounts.length > 0 && signedSum(itemAmounts) !== total.amount.value) extraReasons.push("sum-mismatch");
   }
   const all = items.map((x) => x.text).join(" ");
   return [
@@ -316,16 +318,20 @@ export function parseBillTable(lines: readonly OcrLineInput[], ctx: CaptureConte
     );
   }
   const totals = drafts.filter((d) => d.role === "total");
-  const itemSum = drafts.filter((d) => d.role === "item").reduce((s, d) => s + (d.amount?.value ?? 0) * (d.amount?.negative ? -1 : 1), 0);
+  const itemSum = signedSum(drafts.flatMap((d) => (d.role === "item" && d.amount ? [d.amount] : [])));
   if (totals.length === 1 && drafts.some((d) => d.role === "item") && itemSum !== totals[0]!.amount?.value) totals[0]!.extraReasons.push("sum-mismatch");
   return drafts;
 }
 
 const LOAN_WORD = /대출|융자/;
 const BALANCE_WORD = /잔액|원금|대출금/;
+// 손글씨 합계 줄: 맨 앞이 합계·총(합계·합·계·액·금액)·계·합이고 금액이 있는 줄. 뒤에 한글이 바로 붙으면(계좌·합정) 낱말이 아니다
+const MEMO_TOTAL = /^\s*(?:합\s*계|총\s*(?:합\s*계|합|계|액|금액)?|계|합)(?![가-힣])/;
 
 /** 손글씨 메모: 첫 줄의 'N월' = 월 맥락, 행 = 맨 앞 1~31(일), 금액 = 괄호 밖 가장 오른쪽 숫자 묶음,
- *  다음 줄의 괄호 설명은 윗 행 이름에 붙인다. 대출 행의 괄호 안 'N만원'·잔액 표기는 부채(잔액) 초안을 따로 만든다 */
+ *  다음 줄의 괄호 설명은 윗 행 이름에 붙인다. 대출 행의 괄호 안 'N만원'·잔액 표기는 부채(잔액) 초안을 따로 만든다.
+ *  확인 신호(교정 없음): 일이 바로 위 행보다 작으면 day-order, 합계 줄 위 행 금액이 2개 이상인데 그 합이 합계와 다르면 그 행들에 total-mismatch
+ *  (영수증의 품목 합 ≠ 합계와 같은 구조: 합계 줄 위의 행만 더한다) */
 export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureContext): Draft[] {
   const rows = groupRows(layoutItems(lines));
   const first = rows[0] ? joinText(rows[0]) : "";
@@ -333,6 +339,8 @@ export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureCon
   const month = monthMatch ? Number(monthMatch[1]) : Number(ctx.today.slice(5, 7));
   const drafts: Draft[] = [];
   let last: Draft | null = null;
+  let lastDay: number | null = null;
+  let total: { amount: AmountResult; rows: number } | null = null;
   for (const row of monthMatch ? rows.slice(1) : rows) {
     const text = joinText(row);
     const dayRow = DAY_ROW.exec(text);
@@ -341,6 +349,11 @@ export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureCon
         last.name = `${last.name} ${text}`.trim();
         last.context = `${last.context} ${text}`;
         last.lines.push(...row.map((x) => x.i));
+      } else if (MEMO_TOTAL.test(text)) {
+        // 합계 줄은 항목이 아니다. 금액 말고 다른 낱말(3건 등)이 있으면 합계로 보지 않는다. 여러 줄이면 마지막 줄, 그 위 행만 더한다
+        const rest = text.replace(MEMO_TOTAL, "");
+        const amount = amountsIn(rest, { outsideParens: true }).filter((a) => a.value > 0).at(-1);
+        if (amount && !hasHangul(`${rest.slice(0, amount.start)} ${rest.slice(amount.end)}`.replace(/[(（][^)）]*[)）]/g, ""))) total = { amount, rows: drafts.length };
       }
       continue;
     }
@@ -361,8 +374,14 @@ export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureCon
       lines: row.map((x) => x.i),
       box: row.at(-1)?.box ?? null,
     });
+    // 인접 행 쌍 단위: 어긋난 행만 표시하고, 다음 행은 이 행과 비교한다(같은 일 반복은 같은 날 여러 건)
+    if (lastDay !== null && day < lastDay) last.extraReasons.push("day-order");
+    lastDay = day;
     drafts.push(last);
   }
+  const summed = total ? drafts.slice(0, total.rows) : [];
+  const amounts = summed.flatMap((d) => (d.amount ? [d.amount] : []));
+  if (total && amounts.length >= 2 && signedSum(amounts) !== total.amount.value) for (const d of summed) d.extraReasons.push("total-mismatch");
   // 대출 잔액: 괄호 안 'N만원' 이나 잔액·원금·대출금 표기 → 부채 초안(같은 행의 이자·상환액 초안은 그대로 둔다)
   for (const d of [...drafts]) {
     if (!LOAN_WORD.test(d.context) && !BALANCE_WORD.test(d.context)) continue;
@@ -370,7 +389,9 @@ export function parseHandwriting(lines: readonly OcrLineInput[], ctx: CaptureCon
     const principal = inParens.map((t) => ({ t, a: amountsIn(t).at(-1) })).find((v) => v.a && (/만/.test(v.t) || BALANCE_WORD.test(v.t)));
     if (!principal?.a) continue;
     const base = d.name.replace(/[(（][^)）]*[)）]/g, "").replace(/이자|상환액?/g, "").replace(/\s+/g, " ").trim();
-    drafts.push({ ...d, role: "item", name: `${base} 잔액`, amount: principal.a, installment: null, hint: "loan-balance", context: d.context, lines: [...d.lines] });
+    // 잔액은 행 금액 합에 들지 않으므로 합계 불일치 표시는 넘기지 않는다
+    const extraReasons = d.extraReasons.filter((r) => r !== "total-mismatch");
+    drafts.push({ ...d, role: "item", name: `${base} 잔액`, amount: principal.a, installment: null, hint: "loan-balance", context: d.context, extraReasons, lines: [...d.lines] });
     // 원래 행(이자·상환액)은 괄호 안 잔액 표기 없이 분류한다
     d.context = d.context.replace(/[(（][^)）]*[)）]/g, " ");
   }

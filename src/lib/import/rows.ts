@@ -9,7 +9,7 @@ import {
   LIABILITY_CATEGORY_LABELS,
   PAYMENT_METHODS,
 } from "../finance/types.ts";
-import { IMPORT_MAX_ITEMS, type ImportCandidate, type ImportTarget, type Reason } from "./types.ts";
+import { IMPORT_MAX_ITEMS, type ImportCandidate, type ImportTarget, type Layout, type Reason } from "./types.ts";
 
 export type RowTarget = ImportTarget | "skip";
 
@@ -82,10 +82,11 @@ export function defaultRow(c: ImportCandidate, key: string): RowState {
   };
 }
 
-const AMOUNT_REASONS: readonly Reason[] = ["corrected", "format", "photo", "handwriting", "sum-mismatch", "duplicate", "no-amount"];
-const DATE_REASONS: readonly Reason[] = ["date-inherited", "day-range", "no-date"];
+const AMOUNT_REASONS: readonly Reason[] = ["corrected", "format", "photo", "handwriting", "sum-mismatch", "duplicate", "no-amount", "total-mismatch"];
+const DATE_REASONS: readonly Reason[] = ["date-inherited", "day-range", "no-date", "day-order"];
 
-/** 노랑 강조할 칸 (보고서 6.8): 금액 = 보정·형식 위반·사진/손글씨·품목 합≠합계·중복 의심, 날짜 = 이어받음·말일 초과·없음 */
+/** 노랑 강조할 칸 (보고서 6.8): 금액 = 보정·형식 위반·사진/손글씨·품목 합≠합계·중복 의심·손글씨 합계 불일치,
+ *  날짜 = 이어받음·말일 초과·없음·손글씨 일 순서 어긋남 */
 export function highlights(c: ImportCandidate): { amount: boolean; date: boolean; name: boolean } {
   return {
     amount: c.reasons.some((r) => AMOUNT_REASONS.includes(r)),
@@ -105,7 +106,20 @@ export const REASON_LABELS: Record<Reason, string> = {
   format: "금액 형식",
   "day-range": "말일 초과",
   handwriting: "손글씨",
+  "day-order": "일이 위 행보다 앞서요",
+  "total-mismatch": "합계와 불일치",
 };
+
+export const HANDWRITING_NOTICE = "손글씨는 인식이 부정확할 수 있어요. 금액과 날짜를 꼭 확인해 주세요.";
+export const TOTAL_MISMATCH_NOTICE = "적어 둔 합계와 읽은 금액의 합이 달라요. 금액을 확인해 주세요.";
+
+/** 사진 한 장 위에 띄울 주의 줄: 손글씨(자동 판정·사용자 선택)면 인식 주의, 그 사진 후보에 합계 불일치가 있으면 경고 */
+export function photoNotices(layout: Layout, candidates: readonly ImportCandidate[]): string[] {
+  const out: string[] = [];
+  if (layout === "handwriting") out.push(HANDWRITING_NOTICE);
+  if (candidates.some((c) => c.reasons.includes("total-mismatch"))) out.push(TOTAL_MISMATCH_NOTICE);
+  return out;
+}
 
 export const CONFIDENCE_LABELS = { high: "높음", check: "확인 필요", low: "낮음" } as const;
 

@@ -153,7 +153,24 @@ test("금액 없음·형식 위반·말일 초과는 낮음", () => {
   ]);
   assert.deepEqual(out.map((c) => [c.amount, c.reasons.filter((r) => r !== "photo" && r !== "handwriting")]), [
     [null, ["no-amount", "day-range"]],
-    [12000, ["format", "date-inherited"]],
+    // 31 다음 3 은 인접 행 쌍 기준으로 일 순서 어긋남(31 이 말일 초과여도 행이다)
+    [12000, ["format", "date-inherited", "day-order"]],
   ]);
   assert.ok(out.every((c) => c.confidence === "low"));
+});
+
+test("손글씨 확인 신호: 일 순서 어긋남·합계 불일치는 사유로 붙고(교정 없음) 신뢰도는 그대로 낮음", () => {
+  const out = buildCandidates([
+    {
+      lines: [line("10월", 40, 30, 120, 70), line("12 가상서점 2,000", 40, 100, 400, 140), line("5 가상카페 3,000", 40, 160, 400, 200), line("합계 9,000", 40, 220, 400, 260)],
+      ctx: PHOTO,
+    },
+  ]);
+  assert.deepEqual(
+    out.map((c) => [c.name, c.amount, c.date, c.reasons.filter((r) => r === "day-order" || r === "total-mismatch"), c.confidence]),
+    [
+      ["가상서점", 2000, "2026-10-12", ["total-mismatch"], "low"],
+      ["가상카페", 3000, "2026-10-05", ["day-order", "total-mismatch"], "low"],
+    ],
+  );
 });

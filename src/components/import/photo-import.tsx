@@ -20,6 +20,7 @@ import {
   defaultCategory,
   defaultRow,
   highlights,
+  photoNotices,
   toPayload,
   type RowState,
   type RowTarget,
@@ -241,36 +242,45 @@ export function PhotoImport({ today, sharedWithGroup }: { today: string; sharedW
           ) : null}
           {photos.length > 0 ? (
             <ul className="flex flex-col gap-2" aria-label="고른 사진">
-              {photos.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-md border border-line px-3 py-2 text-sm">
-                  <span className="font-semibold">{p.label}</span>
-                  <span role="status" className={cn("text-muted", p.status === "error" && "text-danger")}>
-                    {STATUS_LABELS[p.status]}
-                    {p.error ? ` — ${p.error}` : ""}
-                  </span>
-                  {p.status === "done" ? (
-                    <>
-                      <Select aria-label={`${p.label} 종류`} value={p.layout} onChange={(e) => (dropEdits(p.id), update(p.id, { layout: e.currentTarget.value as Photo["layout"] }))}>
-                        <option value="auto">자동 ({LAYOUT_LABELS[detectLayout(p.lines, { width: p.width, height: p.height, source: p.source, today })]})</option>
-                        {(Object.keys(LAYOUT_LABELS) as Layout[]).map((l) => (
-                          <option key={l} value={l}>
-                            {LAYOUT_LABELS[l]}
-                          </option>
-                        ))}
-                      </Select>
-                      <Select aria-label={`${p.label} 입력 방식`} value={p.source} onChange={(e) => (dropEdits(p.id), update(p.id, { source: e.currentTarget.value as Photo["source"] }))}>
-                        <option value="screenshot">화면 캡처</option>
-                        <option value="photo">카메라 사진</option>
-                      </Select>
-                    </>
-                  ) : null}
-                  {["queued", "preparing", "loading", "recognizing"].includes(p.status) ? (
-                    <Button variant="ghost" size="sm" className="min-h-11" onClick={() => cancel(p.id)}>
-                      취소
-                    </Button>
-                  ) : null}
-                </li>
-              ))}
+              {photos.map((p) => {
+                const detected = p.status === "done" ? detectLayout(p.lines, { width: p.width, height: p.height, source: p.source, today }) : null;
+                const notices = detected ? photoNotices(p.layout === "auto" ? detected : p.layout, candidates.filter((c) => c.capture === done.indexOf(p))) : [];
+                return (
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-md border border-line px-3 py-2 text-sm">
+                    {notices.map((n) => (
+                      <p key={n} className="basis-full rounded-sm bg-warn-bg px-2 py-1 text-xs text-warn-ink">
+                        {n}
+                      </p>
+                    ))}
+                    <span className="font-semibold">{p.label}</span>
+                    <span role="status" className={cn("text-muted", p.status === "error" && "text-danger")}>
+                      {STATUS_LABELS[p.status]}
+                      {p.error ? ` — ${p.error}` : ""}
+                    </span>
+                    {p.status === "done" ? (
+                      <>
+                        <Select aria-label={`${p.label} 종류`} value={p.layout} onChange={(e) => (dropEdits(p.id), update(p.id, { layout: e.currentTarget.value as Photo["layout"] }))}>
+                          <option value="auto">자동 ({detected ? LAYOUT_LABELS[detected] : ""})</option>
+                          {(Object.keys(LAYOUT_LABELS) as Layout[]).map((l) => (
+                            <option key={l} value={l}>
+                              {LAYOUT_LABELS[l]}
+                            </option>
+                          ))}
+                        </Select>
+                        <Select aria-label={`${p.label} 입력 방식`} value={p.source} onChange={(e) => (dropEdits(p.id), update(p.id, { source: e.currentTarget.value as Photo["source"] }))}>
+                          <option value="screenshot">화면 캡처</option>
+                          <option value="photo">카메라 사진</option>
+                        </Select>
+                      </>
+                    ) : null}
+                    {["queued", "preparing", "loading", "recognizing"].includes(p.status) ? (
+                      <Button variant="ghost" size="sm" className="min-h-11" onClick={() => cancel(p.id)}>
+                        취소
+                      </Button>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="text-sm text-muted">카드 앱 이용내역(스크린샷)·영수증·관리비 고지서 사진을 고르세요. 손글씨 메모는 줄 구분만 도와주니 항목 이름과 금액은 직접 고쳐 주세요. 처음 한 번 <span className="whitespace-nowrap">인식 모델(약 16MB)을</span> 내려받습니다.</p>

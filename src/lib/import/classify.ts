@@ -60,7 +60,7 @@ export function similarity(a: string, b: string): number {
 export const DUPLICATE_NAME_SIMILARITY = 0.85;
 
 const LOW: readonly Reason[] = ["no-amount", "format", "day-range", "handwriting"];
-const CHECK: readonly Reason[] = ["corrected", "date-inherited", "no-date", "photo", "sum-mismatch", "duplicate"];
+const CHECK: readonly Reason[] = ["corrected", "date-inherited", "no-date", "photo", "sum-mismatch", "duplicate", "day-order", "total-mismatch"];
 
 export function confidenceOf(reasons: readonly Reason[]): Confidence {
   if (reasons.some((r) => LOW.includes(r))) return "low";

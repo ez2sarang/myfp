@@ -1,7 +1,8 @@
 // 인식 줄 → 항목 초안 파서 4종(카드 앱 목록·영수증·관리비 고지서 표·손글씨 메모)과 레이아웃 추정. 합성 상자·가상 이름·가상 금액만 쓴다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { detectLayout, groupRows, layoutItems, parseBillTable, parseCardList, parseHandwriting, parseReceipt } from "../src/lib/import/parse.ts";
+import { detectLayout, groupRows, layoutItems, parseBillTable, parseCardList, parseHandwriting, parseReceipt, type Draft } from "../src/lib/import/parse.ts";
+import type { Reason } from "../src/lib/import/types.ts";
 import { BILL_CAPTURE, CARD_CAPTURE, line, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, row, SHOT } from "./import-fixtures.ts";
 
 test("기울기 보정: 3도 기운 표도 같은 행으로 묶인다", () => {
@@ -104,6 +105,68 @@ test("손글씨: 월 맥락이 캡처일보다 뒤면 전년, 그 달 말일을 
   assert.equal(drafts[0]!.dayOutOfRange, true);
   const nov = parseHandwriting([line("11월", 40, 30, 120, 70), line("3 가상학원 200,000", 40, 100, 400, 140)], PHOTO);
   assert.equal(nov[0]!.date, "2025-11-03");
+});
+
+// 손글씨 메모 한 줄씩(60px 간격). 괄호 보충줄은 조금 들여 쓴다
+const memo = (...texts: string[]) => parseHandwriting(texts.map((t, k) => line(t, t.startsWith("(") ? 80 : 40, 30 + 60 * k, 400, 70 + 60 * k)), PHOTO);
+const flagged = (drafts: Draft[], reason: Reason) => drafts.map((d) => [d.name, d.extraReasons.includes(reason)]);
+
+test("손글씨 일 순서: 바로 위 행보다 일이 작은 행만 표시(교정 없음), 같은 일 반복·월 제목·괄호 보충줄·합계 줄은 영향 없음", () => {
+  assert.ok(memo("10월", "1 가상가게 1,000", "5 가상가게 2,000", "5 가상카페 3,000", "20 가상서점 4,000").every((d) => !d.extraReasons.includes("day-order")), "오름차순·같은 일 반복");
+  const off = memo("10월", "3 가상가 1,000", "12 가상나 2,000", "5 가상다 3,000", "8 가상라 4,000");
+  assert.deepEqual(flagged(off, "day-order"), [
+    ["가상가", false],
+    ["가상나", false],
+    ["가상다", true],
+    ["가상라", false],
+  ]);
+  assert.deepEqual(
+    off.map((d) => d.date),
+    ["2026-10-03", "2026-10-12", "2026-10-05", "2026-10-08"],
+    "일은 고치지 않는다",
+  );
+  // 첫 행은 비교 대상이 없다(월 제목 12월 은 행이 아니다)
+  assert.deepEqual(flagged(memo("28 가상가 1,000", "3 가상나 2,000"), "day-order"), [
+    ["가상가", false],
+    ["가상나", true],
+  ]);
+  assert.ok(memo("12월", "3 가상가 1,000", "4 가상나 2,000").every((d) => !d.extraReasons.includes("day-order")));
+  const parens = memo("10월", "5 가상가 1,000", "(1일 자동이체)", "12 가상나 2,000", "합계 3,000", "20 가상다 4,000");
+  assert.deepEqual(flagged(parens, "day-order"), [
+    ["가상가 (1일 자동이체)", false],
+    ["가상나", false],
+    ["가상다", false],
+  ]);
+});
+
+test("손글씨 합계: 합계 줄 위 행 금액 합 ≠ 합계면 그 행 모두에 표시, 같거나 합계 줄이 없거나 행 금액이 1개면 검사 안 함, 합계 줄은 항목이 아니다", () => {
+  assert.ok(parseHandwriting(MEMO_CAPTURE, PHOTO).every((d) => !d.extraReasons.includes("total-mismatch")), "일치(대출 잔액은 합에 넣지 않음)");
+  const wrong = memo("10월", "5 가상헬스 50,000", "12 가상대출 이자 120,000 (3000만원)", "20 가상가 7,000", "합계 999,000");
+  assert.deepEqual(flagged(wrong, "total-mismatch"), [
+    ["가상헬스", true],
+    ["가상대출 이자 (3000만원)", true],
+    ["가상가", true],
+    ["가상대출 잔액", false],
+  ]);
+  assert.ok(!wrong.some((d) => /합계/.test(d.name) || d.amount?.value === 999_000), "합계 줄은 후보가 아니다");
+  assert.ok(memo("10월", "5 가상가 1,000", "12 가상나 2,000").every((d) => d.extraReasons.length === 0), "합계 줄 없음");
+  assert.ok(memo("10월", "5 가상가 1,000", "합계 9,000").every((d) => d.extraReasons.length === 0), "행 금액 1개");
+  assert.ok(memo("10월", "5 가상가 1,000", "12 가상나", "합계 9,000").every((d) => !d.extraReasons.includes("total-mismatch")), "금액 있는 행 1개");
+  for (const total of ["총 9,000", "계: 9,000", "합 9,000원", "총합계 9,000", "합계 9,000 (2건)"]) {
+    assert.ok(memo("10월", "5 가상가 1,000", "12 가상나 2,000", total).every((d) => d.extraReasons.includes("total-mismatch")), total);
+    assert.equal(memo("10월", "5 가상가 1,000", "12 가상나 2,000", total.replace("9,000", "3,000")).some((d) => d.extraReasons.includes("total-mismatch")), false, total);
+  }
+  // 합계 줄 아래 행은 더하지도 표시하지도 않는다(영수증과 같은 구조)
+  assert.ok(memo("10월", "5 가상가 1,000", "12 가상나 2,000", "합계 3,000", "20 가상다 4,000").every((d) => d.extraReasons.length === 0), "합계 아래 행");
+  assert.deepEqual(flagged(memo("10월", "5 가상가 1,000", "12 가상나 2,000", "합계 9,000", "20 가상다 4,000"), "total-mismatch"), [
+    ["가상가", true],
+    ["가상나", true],
+    ["가상다", false],
+  ]);
+  // 합계 낱말이 아닌 줄(계좌·합정)이나 금액 말고 다른 낱말이 있는 줄은 합계로 보지 않는다
+  for (const text of ["계좌이체 9,000", "합정 9,000", "총 3건"]) {
+    assert.ok(memo("10월", "5 가상가 1,000", "12 가상나 2,000", text).every((d) => d.extraReasons.length === 0), text);
+  }
 });
 
 test("레이아웃 추정: 고지서 → 영수증 → 오른쪽 금액원 → 손글씨", () => {

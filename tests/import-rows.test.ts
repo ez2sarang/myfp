@@ -3,8 +3,20 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildCandidates } from "../src/lib/import/classify.ts";
 import { parseImportPayload } from "../src/lib/import/register.ts";
-import { canBulkSelect, categoriesFor, categoryLabel, defaultRow, highlights, toPayload, type RowState } from "../src/lib/import/rows.ts";
-import { IMPORT_FIELDS, type ImportTarget } from "../src/lib/import/types.ts";
+import {
+  HANDWRITING_NOTICE,
+  REASON_LABELS,
+  TOTAL_MISMATCH_NOTICE,
+  canBulkSelect,
+  categoriesFor,
+  categoryLabel,
+  defaultRow,
+  highlights,
+  photoNotices,
+  toPayload,
+  type RowState,
+} from "../src/lib/import/rows.ts";
+import { IMPORT_FIELDS, type ImportTarget, type Layout } from "../src/lib/import/types.ts";
 import { CARD_CAPTURE, MEMO_CAPTURE, PHOTO, RECEIPT_CAPTURE, SHOT, TODAY } from "./import-fixtures.ts";
 
 const card = buildCandidates([{ lines: CARD_CAPTURE, ctx: SHOT }]);
@@ -44,6 +56,24 @@ test("노랑 강조: 날짜 이어받음 → 날짜, 보정 → 금액, 사진 �
   assert.deepEqual(highlights(card[0]!), { amount: false, date: false, name: false });
   const receipt = buildCandidates([{ lines: RECEIPT_CAPTURE(), ctx: PHOTO }]);
   assert.equal(highlights(receipt[0]!).amount, true);
+});
+
+test("손글씨 확인 신호의 노랑 강조와 사유: 일 순서 어긋남 → 날짜 칸, 합계 불일치 → 금액 칸", () => {
+  const base = card[0]!;
+  assert.deepEqual(highlights({ ...base, reasons: ["day-order"] }), { amount: false, date: true, name: false });
+  assert.deepEqual(highlights({ ...base, reasons: ["total-mismatch"] }), { amount: true, date: false, name: false });
+  assert.equal(REASON_LABELS["day-order"], "일이 위 행보다 앞서요");
+  assert.equal(REASON_LABELS["total-mismatch"], "합계와 불일치");
+});
+
+test("사진 위 주의 줄: 손글씨(자동 판정·사용자 선택 모두 layout 으로 들어옴)에만 인식 주의, 합계 불일치가 있으면 경고 한 줄 더", () => {
+  assert.equal(HANDWRITING_NOTICE, "손글씨는 인식이 부정확할 수 있어요. 금액과 날짜를 꼭 확인해 주세요.");
+  assert.equal(TOTAL_MISMATCH_NOTICE, "적어 둔 합계와 읽은 금액의 합이 달라요. 금액을 확인해 주세요.");
+  const memo = buildCandidates([{ lines: MEMO_CAPTURE, ctx: PHOTO }]);
+  for (const layout of ["card", "receipt", "bill"] as Layout[]) assert.deepEqual(photoNotices(layout, card), [], layout);
+  assert.deepEqual(photoNotices("handwriting", memo), [HANDWRITING_NOTICE]);
+  const wrong = memo.map((c) => ({ ...c, reasons: [...c.reasons, "total-mismatch" as const] }));
+  assert.deepEqual(photoNotices("handwriting", wrong), [HANDWRITING_NOTICE, TOTAL_MISMATCH_NOTICE]);
 });
 
 test("행 → 등록 요청: 선택한 행만, 대상별 허용 필드만, 서버 검증 통과", () => {

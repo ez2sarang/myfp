@@ -25,6 +25,14 @@ test("사진 수·크기 상한과 워커 생성 형태", () => {
   assert.match(UI, /new Worker\(new URL\("\.\.\/\.\.\/lib\/ocr\/ocr\.worker\.ts", import\.meta\.url\), \{ type: "module" \}\)/);
 });
 
+test("사진 위 주의 줄은 photoNotices 로만: 실제 적용 레이아웃(자동이면 판정값, 아니면 사용자 선택)과 그 사진의 후보를 넘긴다", () => {
+  assert.match(UI, /photoNotices\(p\.layout === "auto" \? detected : p\.layout, candidates\.filter\(\(c\) => c\.capture === done\.indexOf\(p\)\)\)/);
+  assert.match(UI, /const detected = p\.status === "done" \? detectLayout\(/);
+  // 문구는 rows.ts 한 곳에만 있고 화면에 따로 적지 않는다(손글씨가 아닐 때 나올 길이 없다)
+  assert.doesNotMatch(UI, /손글씨는 인식이 부정확|적어 둔 합계/);
+  assert.match(UI, /\{notices\.map\(\(n\) => \(\s*<p key=\{n\} className="[^"]*bg-warn-bg[^"]*text-warn-ink/);
+});
+
 test("진입점 3곳(대시보드·예정지출 탭·자산 화면)에 「사진으로 추가」", () => {
   for (const file of ["src/app/app/page.tsx", "src/components/monthly/planned-tab.tsx", "src/app/app/assets/page.tsx"]) {
     assert.match(read(file), /href="\/app\/import\/photo"[\s\S]{0,200}사진으로 추가/, file);
