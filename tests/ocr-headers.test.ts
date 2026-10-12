@@ -13,9 +13,11 @@ type Rule = { source: string; headers: { key: string; value: string }[] };
 
 const UPLOAD = "/app/import/photo";
 const ASSETS = "/ocr/:path*";
-const WORKER = "/_next/static/chunks/:file(turbopack-worker-[^/]+\\.js)";
+// 같은 진입 파일이 로컬 빌드에서는 /_next/static/chunks/, 불변 정적 자산을 켠 빌드(Vercel 어댑터)에서는 /_next/static/immutable/chunks/ 로 나간다
+const WORKER_FILE = ":file(turbopack-worker-[^/]+\\.js)";
+const WORKERS = [`/_next/static/chunks/${WORKER_FILE}`, `/_next/static/immutable/chunks/${WORKER_FILE}`];
 const WORKER_CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
-const OCR_SOURCES = [UPLOAD, ASSETS, WORKER];
+const OCR_SOURCES = [UPLOAD, ASSETS, ...WORKERS];
 
 async function rules(): Promise<Rule[]> {
   return ((await nextConfig.headers?.()) ?? []) as Rule[];
@@ -79,18 +81,22 @@ test("업로드 화면 CSP: 전체 규칙보다 뒤, CSP 하나만, 전체보다
   }
 });
 
-test("워커 진입 파일 한 경로에만 워커 전용 CSP: wasm 컴파일만 열고 'unsafe-inline'·'unsafe-eval'·blob 없음", async () => {
+test("워커 진입 파일(두 서빙 경로의 같은 파일)에만 워커 전용 CSP: wasm 컴파일만 열고 'unsafe-inline'·'unsafe-eval'·blob 없음", async () => {
   const list = await rules();
   const allIndex = list.findIndex((r) => r.source === "/:path*");
-  const index = list.findIndex((r) => r.source === WORKER);
-  assert.ok(index > allIndex && allIndex >= 0);
-  assert.deepEqual(list[index]!.headers, [{ key: "Content-Security-Policy", value: WORKER_CSP }]);
+  for (const source of WORKERS) {
+    const index = list.findIndex((r) => r.source === source);
+    assert.ok(index > allIndex && allIndex >= 0, source);
+    assert.deepEqual(list[index]!.headers, [{ key: "Content-Security-Policy", value: WORKER_CSP }], source);
+  }
   assert.doesNotMatch(WORKER_CSP, /'unsafe-inline'|'unsafe-eval'|blob:|https:|\*/);
-  // wasm 을 여는 규칙은 이것 하나뿐
+  // wasm 을 여는 규칙은 이 두 개뿐(파일 이름 정규식 같음)
   const wasmRules = list.filter((r) => r.headers.some((h) => h.value.includes("wasm-unsafe-eval")));
-  assert.deepEqual(wasmRules.map((r) => r.source), [WORKER]);
-  for (const name of ["turbopack-worker-2ru9m5gbh1na6.js", "turbopack-worker-a_b-c.js"]) {
-    assert.equal(effective(list, `/_next/static/chunks/${name}`).get("Content-Security-Policy"), WORKER_CSP, name);
+  assert.deepEqual(wasmRules.map((r) => r.source), WORKERS);
+  for (const dir of ["/_next/static/chunks", "/_next/static/immutable/chunks"]) {
+    for (const name of ["turbopack-worker-2ru9m5gbh1na6.js", "turbopack-worker-a_b-c.js"]) {
+      assert.equal(effective(list, `${dir}/${name}`).get("Content-Security-Policy"), WORKER_CSP, `${dir}/${name}`);
+    }
   }
 });
 
@@ -104,6 +110,8 @@ test("다른 경로의 헤더는 OCR 규칙이 없을 때와 같다 (/_next/stat
     "/_next/static/chunks/a.js", "/_next/static/chunks/turbopack-1yuwv6457b8y0.js", "/_next/static/chunks/turbopack-worker-a.js.map",
     "/_next/static/chunks/sub/turbopack-worker-a.js", "/_next/static/chunks/xturbopack-worker-a.js", "/_next/static/media/turbopack-worker-a.js",
     "/_next/static/media/ort-wasm-simd-threaded.38dh_vup27riw.wasm", "/_next/static/css/a.css",
+    "/_next/static/immutable/chunks/a.js", "/_next/static/immutable/chunks/turbopack-worker-a.js.map", "/_next/static/immutable/media/x.wasm",
+    "/_next/static/immutable/turbopack-worker-a.js", "/_next/static/immutable/chunks/sub/turbopack-worker-a.js",
   ];
   for (const path of paths) assert.deepEqual(effective(list, path), effective(without, path), path);
   const global = effective(list, "/app").get("Content-Security-Policy") ?? "";
@@ -126,6 +134,25 @@ test("/ocr/* 자산은 1년 불변 캐시(private, 공유 캐시 제외), 다른
   assert.equal(effective(list, UPLOAD).has("Cache-Control"), false);
   assert.equal(effective(list, "/app").has("Cache-Control"), false);
 });
+
+function run(args: string[], env: Record<string, string | undefined>) {
+  const out = spawnSync(process.execPath, [path.join(root, "scripts/check-ocr-worker.mjs"), ...args], { encoding: "utf8", env: { ...process.env, VERCEL: undefined, ...env } });
+  return { status: out.status, output: `${out.stdout}${out.stderr}` };
+}
+
+/** 가짜 작업 폴더(파일 경로 → 내용)에서 후보 탐색을 돌린다 */
+function checkRoot(files: Record<string, string>, vercel: boolean) {
+  const dir = mkdtempSync(path.join(tmpdir(), "myfp-ocr-root-"));
+  try {
+    for (const [rel, body] of Object.entries(files)) {
+      spawnSync("mkdir", ["-p", path.dirname(path.join(dir, rel))]);
+      writeFileSync(path.join(dir, rel), body);
+    }
+    return run([], { CHECK_OCR_ROOT: dir, VERCEL: vercel ? "1" : undefined });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 function checkWorker(files: Record<string, string> | null, srcFiles?: Record<string, string>) {
   const dir = mkdtempSync(path.join(tmpdir(), "myfp-ocr-worker-"));
@@ -175,4 +202,51 @@ test("빌드 뒤 확인: 워커 CSP 예외는 모든 Turbopack 워커에 적용�
   assert.equal(two.status, 1);
   assert.match(two.output, /OCR 워커 한 곳이어야 합니다\(지금 2곳/);
   assert.equal(checkWorker(chunks, { "b.ts": `new Worker(new URL("./other.worker.ts", import.meta.url));` }).status, 1, "OCR 워커가 아닌 워커");
+});
+
+const WORKER_JS = "turbopack-worker-abc123.js";
+const builtChunks = (dir: string) => ({ [`${dir}/${WORKER_JS}`]: "w", [`${dir}/41-page.js`]: `x("static/chunks/${WORKER_JS}")` });
+
+test("산출물 위치를 못 찾으면: 로컬은 실패(찾아본 곳·진단 출력), Vercel 은 큰 경고를 남기고 건너뜀(exit 0)", () => {
+  const local = checkRoot({ "README.md": "x" }, false);
+  assert.equal(local.status, 1);
+  const order = [".next/static/chunks", ".next/static/immutable/chunks", ".vercel/output/static/_next/static/chunks", ".vercel/output/static/_next/static/immutable/chunks", "(작업 폴더 아래 4단계 탐색)"];
+  const positions = order.map((c) => local.output.indexOf(c));
+  assert.ok(positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1]!)), JSON.stringify(positions));
+  assert.match(local.output, /진단\(최상위 목록\)/);
+  const vercel = checkRoot({ "README.md": "x" }, true);
+  assert.equal(vercel.status, 0);
+  assert.match(vercel.output, /경고: 검사를 건너뜁니다\(Vercel 빌드\)/);
+});
+
+test("산출물을 찾으면 Vercel 에서도 같은 검사: 불변 경로(immutable/chunks)도 규칙과 맞으면 통과, 미참조면 실패", () => {
+  const ok = checkRoot(builtChunks(".next/static/immutable/chunks"), true);
+  assert.equal(ok.status, 0, ok.output);
+  assert.match(ok.output, /\/_next\/static\/immutable\/chunks/);
+  const orphan = checkRoot({ [`.next/static/immutable/chunks/${WORKER_JS}`]: "w", ".next/static/immutable/chunks/41-page.js": "no reference" }, true);
+  assert.equal(orphan.status, 1);
+  assert.match(orphan.output, /참조하는 청크가 없습니다/);
+});
+
+test("후보 순서: .next/static/chunks → immutable → .vercel/output → 4단계 탐색(node_modules 제외)", () => {
+  const both = checkRoot({ ...builtChunks(".next/static/chunks"), ...builtChunks(".next/static/immutable/chunks") }, false);
+  assert.equal(both.status, 0, both.output);
+  assert.match(both.output, /\.next\/static\/chunks\/turbopack-worker-abc123\.js \(\/_next\/static\/chunks\)/);
+  const vercelOutput = checkRoot(builtChunks(".vercel/output/static/_next/static/immutable/chunks"), false);
+  assert.equal(vercelOutput.status, 0, vercelOutput.output);
+  assert.match(vercelOutput.output, /\.vercel\/output\/static\/_next\/static\/immutable\/chunks/);
+  const deep = checkRoot(builtChunks("custom-dist/static/immutable/chunks"), false);
+  assert.equal(deep.status, 0, deep.output);
+  assert.match(deep.output, /custom-dist\/static\/immutable\/chunks/);
+  const ignored = checkRoot(builtChunks("node_modules/pkg/static/chunks"), false);
+  assert.equal(ignored.status, 1, "node_modules 안은 보지 않는다");
+});
+
+test("진단 출력은 최대 50줄", () => {
+  const many = Object.fromEntries(Array.from({ length: 80 }, (_, i) => [`.next/file-${String(i).padStart(2, "0")}.txt`, "x"]));
+  const out = checkRoot(many, false);
+  assert.equal(out.status, 1);
+  const diagnostic = out.output.split("진단(최상위 목록):\n")[1] ?? "";
+  const lines = diagnostic.split("\n").filter((l) => l.trim().length > 0);
+  assert.ok(lines.length > 0 && lines.length <= 50, String(lines.length));
 });

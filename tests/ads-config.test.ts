@@ -69,7 +69,7 @@ test("off(기본)·잘못된 값: 가이드 글 전용 CSP 규칙이 없다 (모
   ]) {
     const list = await withEnv(env, rules);
     // 사진 인식 업로드 화면·워커 진입 파일의 전용 CSP 는 광고와 무관하다 (tests/ocr-headers.test.ts)
-    const ocr = (source: string) => source === "/app/import/photo" || source.startsWith("/_next/static/chunks/:file(");
+    const ocr = (source: string) => source === "/app/import/photo" || /^\/_next\/static\/(immutable\/)?chunks\/:file\(/.test(source);
     const cspRules = list.filter((r) => !ocr(r.source) && r.headers.some((h) => h.key === "Content-Security-Policy"));
     assert.equal(cspRules.length, 1, JSON.stringify(env));
     assert.equal(list.some((r) => r.source.startsWith("/guide")), false);

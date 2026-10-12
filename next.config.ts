@@ -87,7 +87,10 @@ const OCR_CONTENT_SECURITY_POLICY = [
 // 일반 <script> 로 받은 응답의 CSP 는 무시되므로 이 헤더는 워커로 실행될 때만 효과가 있다. 'unsafe-eval'·'unsafe-inline'·blob 은 열지 않는다.
 // 이 경로가 "업로드 화면 밖 헤더 불변" 원칙의 유일한 예외다. 진입 파일은 Turbopack 의 모든 워커가 함께 쓰므로 이 예외는 모든 워커에 적용된다
 // — 빌드 뒤 scripts/check-ocr-worker.mjs 가 산출물 파일명이 이 규칙과 맞는지, 소스에서 워커를 만드는 곳이 OCR 워커 하나뿐인지 확인한다.
-const OCR_WORKER_SOURCE = "/_next/static/chunks/:file(turbopack-worker-[^/]+\\.js)";
+// 같은 진입 파일이 빌드 환경에 따라 두 경로 중 하나로 서빙된다: 어댑터가 불변 정적 자산(supportsImmutableAssets, Next 16.3+)을 켜면
+// /_next/static/immutable/chunks/…(Vercel 빌드), 아니면 /_next/static/chunks/…(로컬 next build). 두 규칙은 같은 파일 이름·같은 CSP 다.
+const OCR_WORKER_FILE = ":file(turbopack-worker-[^/]+\\.js)";
+const OCR_WORKER_SOURCES = [`/_next/static/chunks/${OCR_WORKER_FILE}`, `/_next/static/immutable/chunks/${OCR_WORKER_FILE}`];
 
 const OCR_WORKER_CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -130,7 +133,7 @@ const nextConfig: NextConfig = {
       ...(adsServe() ? [{ source: "/guide/:slug", headers: [{ key: "Content-Security-Policy", value: AD_CONTENT_SECURITY_POLICY }] }] : []),
       { source: OCR_UPLOAD_PATH, headers: [{ key: "Content-Security-Policy", value: OCR_CONTENT_SECURITY_POLICY }] },
       { source: "/ocr/:path*", headers: ocrAssetHeaders },
-      { source: OCR_WORKER_SOURCE, headers: [{ key: "Content-Security-Policy", value: OCR_WORKER_CONTENT_SECURITY_POLICY }] },
+      ...OCR_WORKER_SOURCES.map((source) => ({ source, headers: [{ key: "Content-Security-Policy", value: OCR_WORKER_CONTENT_SECURITY_POLICY }] })),
     ];
   },
 };
