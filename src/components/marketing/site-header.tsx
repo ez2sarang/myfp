@@ -17,10 +17,13 @@ export function SiteHeader() {
         </Link>
         <nav aria-label="소개 메뉴" className="ml-6 hidden items-center gap-1 text-sm font-medium text-muted md:flex">
           {NAV.map((item) => (
-            <a key={item.href} href={item.href} className="rounded-md px-3 py-2 transition-colors hover:bg-bg-alt hover:text-ink">
+            <a key={item.href} href={`/${item.href}`} className="rounded-md px-3 py-2 transition-colors hover:bg-bg-alt hover:text-ink">
               {item.label}
             </a>
           ))}
+          <Link href="/guide" className="rounded-md px-3 py-2 transition-colors hover:bg-bg-alt hover:text-ink">
+            가이드
+          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <SessionLink signedOutHref="/login" signedOutLabel="로그인" hideWhenSignedIn className={buttonClass("ghost", "sm", "hidden sm:inline-flex")} />
@@ -43,10 +46,13 @@ export function SiteHeader() {
               className="absolute right-0 top-[calc(100%+8px)] flex w-56 flex-col rounded-lg border border-line bg-surface p-1.5 text-sm font-medium shadow-raised"
             >
               {NAV.map((item) => (
-                <a key={item.href} href={item.href} className="flex min-h-11 items-center rounded-md px-3 hover:bg-bg-alt">
+                <a key={item.href} href={`/${item.href}`} className="flex min-h-11 items-center rounded-md px-3 hover:bg-bg-alt">
                   {item.label}
                 </a>
               ))}
+              <Link href="/guide" className="flex min-h-11 items-center rounded-md px-3 hover:bg-bg-alt">
+                가이드
+              </Link>
               <SessionLink
                 signedOutHref="/login"
                 signedOutLabel="로그인"

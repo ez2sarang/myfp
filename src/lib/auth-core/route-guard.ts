@@ -14,6 +14,7 @@ const PUBLIC_EXACT: ReadonlySet<string> = new Set([
   "/login",
   "/privacy",
   "/terms",
+  "/guide",
   "/api/health",
   "/robots.txt",
   "/sitemap.xml",
@@ -24,6 +25,9 @@ const PUBLIC_EXACT: ReadonlySet<string> = new Set([
 // 접두사 + "/" 경계까지 일치해야 공개
 // 공유 보기 /s/<토큰> 은 공개가 아니다: 세션이 없으면 토큰 유효 여부와 상관없이 똑같이 로그인으로 보낸다(존재 오라클 없음).
 const PUBLIC_PREFIXES: readonly string[] = ["/api/auth", "/_next", "/brand"];
+
+// 공개 가이드 글: /guide/<slug> 한 단계만 (slug 는 소문자·숫자·하이픈). 더 깊은 경로·대문자는 공개가 아니다.
+const PUBLIC_GUIDE_ARTICLE = /^\/guide\/[a-z0-9-]+$/;
 
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -62,7 +66,7 @@ function isApiPath(path: string): boolean {
 export function classifyPath(pathname: string): PathClass {
   const normalized = normalizeForMatch(pathname);
   if (normalized !== null) {
-    if (PUBLIC_EXACT.has(normalized)) return "public";
+    if (PUBLIC_EXACT.has(normalized) || PUBLIC_GUIDE_ARTICLE.test(normalized)) return "public";
     for (const prefix of PUBLIC_PREFIXES) {
       if (normalized.startsWith(`${prefix}/`)) return "public";
     }

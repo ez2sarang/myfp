@@ -22,6 +22,9 @@ export function SiteFooter() {
               {item.label}
             </Link>
           ))}
+          <Link href="/guide" className="w-fit py-1 hover:text-ink">
+            가이드
+          </Link>
         </nav>
         <nav aria-label="법적 고지" className="flex flex-col gap-2">
           <p className="text-xs font-semibold text-ink">정책</p>
