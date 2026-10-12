@@ -1,0 +1,26 @@
+# 비밀값: 실제 값은 절대 커밋하지 않는다. 변수 이름과 설명만 .env.example 에 둔다.
+.env*
+!.env.example
+
+# 개인 작업 기록·도구 상태 (공개 저장소에 올리지 않는다)
+.tasks/
+.collar/
+.omc/
+.gstack/
+.claude/
+
+# 개인 데이터·스크린샷
+data/private/
+*.seed.json
+screenshots/
+*.png
+!public/**/*.png
+
+node_modules
+.next
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+coverage
+.DS_Store
+*.log

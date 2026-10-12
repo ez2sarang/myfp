@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+/* myfp 디자인 토큰. 색·간격·반경·타이포는 모두 여기의 CSS 변수에서 나온다 — 값만 바꾸면 사이트 전체의 룩이 바뀐다.
+   시스템 폰트만 쓰고 외부 요청은 없다. 라이트/다크는 prefers-color-scheme 으로 전환한다. */
+
+:root {
+  color-scheme: light dark;
+
+  /* 표면 */
+  --bg: #f6f7f9;
+  --bg-alt: #eceef2;
+  --surface: #ffffff;
+  --ink: #0f172a;
+  --muted: #526071;
+  --line: rgba(15, 23, 42, 0.1);
+  --line-strong: rgba(15, 23, 42, 0.24);
+
+  /* 브랜드·동작 */
+  --brand: #2f5bea;
+  --brand-ink: #ffffff;
+  --btn-bg: #2f5bea;
+  --btn-bg-hover: #2448c4;
+  --btn-ink: #ffffff;
+  --accent: #0e9f6e;
+  --accent-text: #0a7a55;
+  --focus: #2f5bea;
+
+  /* 상태 */
+  --positive: #0a7a55;
+  --positive-bg: #dcf5ea;
+  --negative: #c2410c;
+  --negative-bg: #fde8dc;
+  --danger: #b42318;
+  --info-bg: #e3eafe;
+  --info-ink: #1e3fae;
+  --warn-bg: #fef3c7;
+  --warn-ink: #8a5a00;
+
+  /* 진한 띠(공유 배너, 랜딩 CTA) */
+  --band: #0f172a;
+  --band-ink: #f8fafc;
+  --band-muted: #a7b2c3;
+
+  /* 차트 팔레트 (분류 색) */
+  --chart-1: #2f5bea;
+  --chart-2: #0e9f6e;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ef4444;
+  --chart-6: #06b6d4;
+  --chart-7: #64748b;
+
+  /* 타이포 */
+  --sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --display: var(--sans);
+  --display-weight: 700;
+  --display-track: -0.03em;
+
+  /* 형태·간격 */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --max: 1160px;
+  --pad: clamp(1rem, 4vw, 2.25rem);
+  --header-h: 60px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1020;
+    --bg-alt: #121a2e;
+    --surface: #111827;
+    --ink: #e8ecf4;
+    --muted: #9aa6b8;
+    --line: rgba(232, 236, 244, 0.12);
+    --line-strong: rgba(232, 236, 244, 0.3);
+    --brand: #7c9bff;
+    --brand-ink: #0b1020;
+    --btn-bg: #7c9bff;
+    --btn-bg-hover: #a3b9ff;
+    --btn-ink: #0b1020;
+    --accent: #34d399;
+    --accent-text: #34d399;
+    --focus: #a3b9ff;
+    --positive: #34d399;
+    --positive-bg: #0f3b2c;
+    --negative: #fb923c;
+    --negative-bg: #3f2312;
+    --danger: #f87171;
+    --info-bg: #1b2a55;
+    --info-ink: #b9c8ff;
+    --warn-bg: #3b2f0b;
+    --warn-ink: #fcd34d;
+    --band: #050814;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-alt: var(--bg-alt);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-btn: var(--btn-bg);
+  --color-btn-hover: var(--btn-bg-hover);
+  --color-btn-ink: var(--btn-ink);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-positive: var(--positive);
+  --color-positive-bg: var(--positive-bg);
+  --color-negative: var(--negative);
+  --color-negative-bg: var(--negative-bg);
+  --color-danger: var(--danger);
+  --color-info-bg: var(--info-bg);
+  --color-info-ink: var(--info-ink);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-band: var(--band);
+  --color-band-ink: var(--band-ink);
+  --color-band-muted: var(--band-muted);
+
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+  --font-display: var(--display);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 12px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:lang(ko) {
+  word-break: keep-all;
+  line-break: strict;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  font-family: var(--display);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-track);
+  line-height: 1.25;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand) 28%, transparent);
+}
+
+a,
+button,
+input,
+select,
+textarea,
+summary,
+[tabindex] {
+  outline-color: var(--focus);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  padding: 0.75rem 1.1rem;
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+.wrap {
+  width: 100%;
+  max-width: calc(var(--max) + var(--pad) * 2);
+  margin-inline: auto;
+  padding-inline: var(--pad);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
