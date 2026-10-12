@@ -17,7 +17,7 @@ export default async function PhotoImportPage() {
     <>
       <PageHeader
         title="사진으로 등록"
-        description="카드 명세서·영수증·고지서·손글씨 메모 사진에서 항목을 읽어 확인한 뒤 한 번에 등록합니다. 인식은 이 기기 안에서만 하며 사진은 서버로 보내지 않고, 이 화면을 떠나면 사진과 인식 결과는 사라집니다."
+        description="카드 앱 화면(스크린샷)·영수증·고지서 사진에서 항목을 읽어 확인한 뒤 한 번에 등록합니다. 손글씨 메모는 줄 구분만 도와줍니다. 인식은 이 기기 안에서만 하며 사진은 서버로 보내지 않고, 이 화면을 떠나면 사진과 인식 결과는 사라집니다."
       />
       <PhotoImport today={seoulToday()} sharedWithGroup={membership !== null && (membership.shareFixed || membership.shareBalances)} />
     </>
