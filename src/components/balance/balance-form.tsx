@@ -39,11 +39,14 @@ export function BalanceForm({
   item,
   submitLabel,
   defaultKind = "asset",
+  sharedWithGroup = false,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   item: BalanceItem | null;
   submitLabel: string;
   defaultKind?: "asset" | "liability";
+  /** 함께 보기 그룹에 자산·부채를 내놓은 상태면 안내 한 줄 */
+  sharedWithGroup?: boolean;
 }) {
   const [state, formAction] = useActionState(action, null);
   const v = state?.values ?? initialValues(item, defaultKind);
@@ -105,6 +108,7 @@ export function BalanceForm({
         <input type="checkbox" name="private" defaultChecked={v.private === "on"} className="size-4" />
         나만 보기 (함께 보기 그룹 합산에서 뺀다)
       </label>
+      {sharedWithGroup ? <p className="-mt-2 text-xs text-muted sm:col-span-2">그룹에 보임 — 숨기려면 「나만 보기」를 체크하세요.</p> : null}
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <SubmitButton variant="primary" size="md">
           {submitLabel}

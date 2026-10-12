@@ -18,6 +18,7 @@ import { seoulToday } from "@/lib/finance/dates";
 import { formatBillingDay, formatDate, formatKRW } from "@/lib/finance/format";
 import { monthlyEquivalent, remainingPayments } from "@/lib/finance/schedule";
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, EXPENSE_SOURCE_LABELS, LIMITS, PAYMENT_METHOD_LABELS, isOneOf } from "@/lib/finance/types";
+import { getMembership } from "@/lib/db/queries/household";
 import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "고정지출" };
@@ -36,6 +37,8 @@ function query(params: { category?: string; sort?: string; archived?: string }):
 export default async function FixedPage({ searchParams }: { searchParams: Params }) {
   const viewer = await requireActiveUser("/app/fixed");
   const sp = await searchParams;
+  // 함께 보기 그룹에 고정지출을 내놓았으면 추가 폼에 안내 한 줄
+  const membership = await getMembership(db, viewer.id);
   const category = isOneOf(EXPENSE_CATEGORIES, first(sp.category)) ? first(sp.category) : "";
   const sort = first(sp.sort) in SORTS ? (first(sp.sort) as keyof typeof SORTS) : "amount";
   const showArchived = first(sp.archived) === "1";
@@ -186,7 +189,7 @@ export default async function FixedPage({ searchParams }: { searchParams: Params
           <p className="text-sm text-muted">남은 횟수를 넣으면 종료일이 자동으로 계산됩니다.</p>
         </CardHeader>
         <CardBody>
-          <FixedForm action={createFixedAction} item={null} submitLabel="추가" />
+          <FixedForm action={createFixedAction} item={null} submitLabel="추가" sharedWithGroup={membership?.shareFixed === true} />
         </CardBody>
       </Card>
     </>

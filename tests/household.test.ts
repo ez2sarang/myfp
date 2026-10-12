@@ -62,6 +62,7 @@ test("visibleToViewer: 모든 데이터 쿼리가 열람자 그룹 ↔ 활성 �
     assert.match(c.text, /JOIN myfp\.household_members m ON m\.household_id = me\.household_id/);
     assert.match(c.text, /JOIN myfp\.users u ON u\.id = m\.user_id AND u\.status = 'active'/);
     assert.match(c.text, /private = false/);
+    if (/JOIN myfp\.fixed_expenses f/.test(c.text)) assert.match(c.text, /f\.archived_at IS NULL/, "보관한 고정지출(과 그 덮어쓰기)은 SQL 단계에서 제외");
     assert.match(c.text, /m\.share_(fixed|balances) = true/);
     assert.doesNotMatch(c.text, /\b(note|institution|payment_method|source|monthly_payment|interest_rate|as_of|token_hash|email)\b/, "보이면 안 되는 열을 조회하지 않는다");
   }
@@ -195,10 +196,10 @@ test("내보내기: 방장의 그룹 안에서 태그로만 찾고, 자기 자�
   assert.match(del.text, /role = 'member'/);
 });
 
-function leaveDb(role: "owner" | "member", rest: { user_id: string; role: string; joined_at: Date }[]) {
+function leaveDb(role: "owner" | "member", rest: { user_id: string; role: string; joined_at: Date; status?: string }[]) {
   return fakeDb((c) => {
     if (c.text.startsWith("SELECT household_id::text AS household_id, role FROM myfp.household_members WHERE user_id")) return { rows: [{ household_id: HH, role }] };
-    if (c.text.startsWith("SELECT user_id::text AS user_id, role, joined_at")) return { rows: rest };
+    if (c.text.includes("m.joined_at, u.status")) return { rows: rest };
     if (c.text.includes("to_regclass('myfp.household_members')")) return { rows: [{ present: true }] };
     if (c.text.startsWith("SELECT role, status FROM myfp.users")) return { rows: [{ role: "member", status: "active" }] };
     return { rows: [], rowCount: 1 };
@@ -209,8 +210,8 @@ test("나가기: 방장이면 가장 먼저 가입한 구성원에게 승계, �
   const early = new Date("2026-01-01T00:00:00Z");
   const late = new Date("2026-05-01T00:00:00Z");
   const withOthers = leaveDb("owner", [
-    { user_id: "ffffffff-0000-4000-8000-000000000006", role: "member", joined_at: late },
-    { user_id: OTHER, role: "member", joined_at: early },
+    { user_id: "ffffffff-0000-4000-8000-000000000006", role: "member", joined_at: late, status: "active" },
+    { user_id: OTHER, role: "member", joined_at: early, status: "active" },
   ]);
   assert.deepEqual(await leaveHousehold(withOthers.db, ME), { ok: true });
   const promote = withOthers.calls.find((c) => c.text.startsWith("UPDATE myfp.household_members SET role = 'owner'"))!;
@@ -230,7 +231,7 @@ test("나가기: 방장이면 가장 먼저 가입한 구성원에게 승계, �
 });
 
 test("계정 삭제: 그룹 테이블이 있으면 같은 트랜잭션에서 먼저 그룹을 나가고(승계·삭제), 마지막에 사용자 행을 지운다", async () => {
-  const f = leaveDb("owner", [{ user_id: OTHER, role: "member", joined_at: new Date("2026-01-01T00:00:00Z") }]);
+  const f = leaveDb("owner", [{ user_id: OTHER, role: "member", joined_at: new Date("2026-01-01T00:00:00Z"), status: "active" }]);
   assert.deepEqual(await deleteAccount(f.db, ME), { ok: true });
   const texts = f.calls.map((c) => c.text);
   const promote = texts.findIndex((t) => t.startsWith("UPDATE myfp.household_members SET role = 'owner'"));
@@ -243,8 +244,32 @@ test("계정 삭제: 그룹 테이블이 있으면 같은 트랜잭션에서 먼
 
 test("방장 승계 순수 함수: 가입 순, 같으면 id 순, 남는 사람 없으면 null", () => {
   const t = new Date("2026-01-01T00:00:00Z");
-  assert.equal(pickSuccessor([{ userId: "b", role: "member", joinedAt: t }, { userId: "a", role: "member", joinedAt: t }, { userId: "me", role: "owner", joinedAt: new Date(0) }], "me"), "a");
-  assert.equal(pickSuccessor([{ userId: "me", role: "owner", joinedAt: t }], "me"), null);
+  assert.equal(
+    pickSuccessor([{ userId: "b", role: "member", joinedAt: t, active: true }, { userId: "a", role: "member", joinedAt: t, active: true }, { userId: "me", role: "owner", joinedAt: new Date(0), active: true }], "me"),
+    "a",
+  );
+  assert.equal(pickSuccessor([{ userId: "me", role: "owner", joinedAt: t, active: true }], "me"), null);
+});
+
+test("방장 승계는 활성 계정 우선: 가장 먼저 가입했어도 차단·대기면 건너뛰고, 활성 구성원이 없으면 가장 오래된 구성원", () => {
+  const old = new Date("2025-01-01T00:00:00Z");
+  const mid = new Date("2026-01-01T00:00:00Z");
+  const members = [
+    { userId: "blocked", role: "member" as const, joinedAt: old, active: false },
+    { userId: "ok", role: "member" as const, joinedAt: mid, active: true },
+    { userId: "me", role: "owner" as const, joinedAt: new Date(0), active: true },
+  ];
+  assert.equal(pickSuccessor(members, "me"), "ok");
+  assert.equal(pickSuccessor(members.map((m) => ({ ...m, active: m.userId === "me" })), "me"), "blocked", "활성 구성원이 없으면 가장 오래된 구성원");
+});
+
+test("승계 쿼리는 구성원의 계정 상태를 함께 읽는다(활성 우선)", async () => {
+  const f = leaveDb("owner", [
+    { user_id: "ffffffff-0000-4000-8000-000000000006", role: "member", joined_at: new Date("2025-01-01T00:00:00Z"), status: "blocked" },
+    { user_id: OTHER, role: "member", joined_at: new Date("2026-01-01T00:00:00Z"), status: "active" },
+  ]);
+  await leaveHousehold(f.db, ME);
+  assert.deepEqual(f.calls.find((c) => c.text.startsWith("UPDATE myfp.household_members SET role = 'owner'"))!.params, [HH, OTHER]);
 });
 
 test("구성원 선택 위·변조: 내 그룹 키와 교집합만, 모르는 값·다른 그룹 키·빈 값은 무시(교집합이 비면 전체)", () => {
@@ -279,6 +304,30 @@ test("합산 순수 함수: 선택한 구성원만 계산, 소유자순·필터�
     { key: "m1", tag: "가", count: 1, total: 3000 },
     { key: "m2", tag: "나", count: 1, total: 4000 },
   ]);
+});
+
+test("보관 아닌 비활성 항목은 기존 동작 유지: 지난 달 합산에는 남고 이번 달부터는 빠진다", () => {
+  const base = { cycle: "monthly" as const, billingMonth: null, startDate: "2026-01-01", endDate: null, archived: false };
+  const fixed = [{ ...base, id: "m1-1", ownerKey: "m1", name: "끈 항목", category: "telecom" as const, amount: 3000, billingDay: 5, active: false }];
+  const members = [{ key: "m1", tag: "가" }];
+  assert.equal(householdOccurrences(fixed, [], members, ["m1"], "2026-09", "2026-10-12").length, 1);
+  assert.equal(householdOccurrences(fixed, [], members, ["m1"], "2026-10", "2026-10-12").length, 0);
+});
+
+test("태그·그룹 이름: 폭 없는 문자·한글 채움 문자·소프트 하이픈·태그 문자·결합 문자 과다는 거부, 보이는 글자 1개 이상, NFC 로 같은 글자는 같은 값", () => {
+  const invisible = ["\u200b", "\u3164", "\u115f", "\u1160", "\uffa0", "\u00ad", "\ufeff", "\u{E0041}", "\u2060"];
+  for (const ch of invisible) {
+    assert.equal(validateTag(`엄마${ch}`).ok, false, `엄마+U+${ch.codePointAt(0)!.toString(16)}`);
+    assert.equal(validateHouseholdName(`우리${ch}집`).ok, false);
+  }
+  assert.equal(validateTag("x\u0301\u0302\u0303").ok, false, "결합 문자 3개 연속 (NFC 로 합쳐지지 않는 조합)");
+  assert.equal(validateTag("e\u0301").ok, true, "결합 문자 하나는 허용");
+  assert.equal(validateTag("😀").ok, false, "보이는 글자 없음");
+  assert.equal(validateTag("--").ok, false);
+  assert.equal(validateTag("1").ok, true);
+  const nfd = "엄마".normalize("NFD");
+  assert.notEqual(nfd, "엄마");
+  assert.deepEqual(validateTag(nfd), { ok: true, value: "엄마" }, "조합형으로 입력해도 같은 태그");
 });
 
 test("이름·태그 검증: 1~30/1~12자, 줄바꿈·제어·양방향 서식 문자 거부", () => {

@@ -1,6 +1,6 @@
 // 함께 보기(그룹 합산) 규칙 (순수 모듈): 이름·태그 검증, 구성원 선택 쿼리 검증, 방장 승계, 합산 목록 정렬·필터, 색.
 // 화면이 다루는 구성원 식별자는 서버가 만든 키(m1~m6, 가입 순)뿐이고, 사용자 id·그룹 id 는 클라이언트로 보내지 않는다.
-import { containsForbidden } from "../account/display-name.ts";
+import { checkShortName, shortNameMessage } from "../account/display-name.ts";
 import type { SortDir } from "../finance/detail-list.ts";
 import type { StackData } from "../finance/charts.ts";
 import { monthOccurrences, type FixedOverride, type Occurrence } from "../finance/occurrences.ts";
@@ -17,14 +17,10 @@ export const MEMBER_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3
 
 export type ShortText = { ok: true; value: string } | { ok: false; message: string };
 
+// 표시 이름과 같은 규칙(NFC, 보이지 않는 문자·한글 채움 문자·결합 문자 과다 거부, 보이는 글자 1개 이상)
 function shortText(raw: unknown, max: number, label: string): ShortText {
-  if (typeof raw !== "string") return { ok: false, message: `${label}을 입력해 주세요.` };
-  if (containsForbidden(raw)) return { ok: false, message: "줄바꿈이나 제어 문자는 쓸 수 없습니다." };
-  const value = raw.trim();
-  const length = [...value].length;
-  if (length === 0) return { ok: false, message: `${label}을 입력해 주세요.` };
-  if (length > max) return { ok: false, message: `${label}은 ${max}자 이하로 입력해 주세요.` };
-  return { ok: true, value };
+  const r = checkShortName(raw, max);
+  return r.ok ? r : { ok: false, message: shortNameMessage(r.reason, label, max) };
 }
 
 export const validateHouseholdName = (raw: unknown): ShortText => shortText(raw, HOUSEHOLD_NAME_MAX, "그룹 이름");
@@ -38,13 +34,18 @@ export interface MemberRef {
   userId: string;
   role: "owner" | "member";
   joinedAt: Date;
+  /** 계정이 활성(users.status = 'active')인지 */
+  active: boolean;
 }
 
-/** 방장이 나갈 때 넘겨받을 사람: 남는 구성원 중 가장 먼저 가입한 사람(같으면 id 순). 없으면 null(그룹 삭제) */
+/**
+ * 방장이 나갈 때 넘겨받을 사람: 남는 활성 구성원 중 가장 먼저 가입한 사람(같으면 id 순).
+ * 활성 구성원이 없으면 남는 구성원 중 가장 먼저 가입한 사람, 아무도 없으면 null(그룹 삭제).
+ */
 export function pickSuccessor(members: readonly MemberRef[], leavingUserId: string): string | null {
   const rest = members.filter((m) => m.userId !== leavingUserId);
   rest.sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime() || a.userId.localeCompare(b.userId));
-  return rest[0]?.userId ?? null;
+  return (rest.find((m) => m.active) ?? rest[0])?.userId ?? null;
 }
 
 /** ?m= 구성원 선택(반복 값 또는 쉼표 구분): 내 그룹 구성원 키와 교집합만. 없거나 교집합이 비면 전체 */

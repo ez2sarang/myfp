@@ -39,7 +39,7 @@ export function MemberChips({ members, selected, keep }: { members: readonly Mem
           <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: m.color }} />
           {m.tag}
           {m.isSelf ? <span className="text-xs text-muted">(나)</span> : null}
-          {!m.active ? <span className="text-xs text-muted">(지금은 합산 제외)</span> : null}
+          {!m.active ? <span className="text-xs text-muted">(지금 합산에 포함되지 않음)</span> : null}
         </label>
       ))}
       <button type="submit" className={buttonClass("secondary", "sm", "min-h-11 sm:min-h-9")}>

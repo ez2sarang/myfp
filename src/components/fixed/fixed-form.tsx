@@ -45,10 +45,13 @@ export function FixedForm({
   action,
   item,
   submitLabel,
+  sharedWithGroup = false,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   item: FixedExpense | null;
   submitLabel: string;
+  /** 함께 보기 그룹에 고정지출을 내놓은 상태면 안내 한 줄 */
+  sharedWithGroup?: boolean;
 }) {
   const [state, formAction] = useActionState(action, null);
   const v = state?.values ?? initialValues(item);
@@ -151,6 +154,7 @@ export function FixedForm({
         <input type="checkbox" name="private" defaultChecked={v.private === "on"} className="size-4" />
         나만 보기 (함께 보기 그룹 합산에서 뺀다)
       </label>
+      {sharedWithGroup ? <p className="-mt-2 text-xs text-muted sm:col-span-2">그룹에 보임 — 숨기려면 「나만 보기」를 체크하세요.</p> : null}
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <SubmitButton variant="primary" size="md">
           {submitLabel}

@@ -21,6 +21,7 @@ import { ASSET_SORTS, assetDetails, listHref, parseListQuery, type AssetSort } f
 import { formatDate, formatKRW } from "@/lib/finance/format";
 import { summarizeBalances } from "@/lib/finance/summary";
 import { ASSET_CATEGORIES, LIMITS, balanceCategoryLabel, type BalanceItem } from "@/lib/finance/types";
+import { getMembership } from "@/lib/db/queries/household";
 import { requireActiveUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "자산·부채" };
@@ -96,7 +97,7 @@ function BalanceTable({ title, items }: { title: string; items: BalanceItem[] })
 export default async function AssetsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireActiveUser("/app/assets");
   const query = parseListQuery<AssetSort>(await searchParams, { sorts: ASSET_SORTS, defaultSort: "amount", categories: ASSET_CATEGORIES });
-  const [items, snapshots] = await Promise.all([listBalances(db, viewer.id), listSnapshots(db, viewer.id)]);
+  const [items, snapshots, membership] = await Promise.all([listBalances(db, viewer.id), listSnapshots(db, viewer.id), getMembership(db, viewer.id)]);
   const totals = summarizeBalances(items);
   const trend = netWorthTrend(snapshots);
   const composition = assetDonut(items);
@@ -179,7 +180,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
           <p className="text-sm text-muted">잔액과 기준일을 넣으면 순자산과 이번 달 기록이 바로 갱신됩니다.</p>
         </CardHeader>
         <CardBody>
-          <BalanceForm action={createBalanceAction} item={null} submitLabel="추가" />
+          <BalanceForm action={createBalanceAction} item={null} submitLabel="추가" sharedWithGroup={membership?.shareBalances === true} />
         </CardBody>
       </Card>
     </>

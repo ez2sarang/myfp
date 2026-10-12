@@ -17,8 +17,9 @@ test("검증: 앞뒤 공백을 지우고 1~30자(문자 수 기준), 이모지·
   assert.deepEqual(validateDisplayName("가"), { ok: true, value: "가" });
   assert.equal(validateDisplayName("가".repeat(30)).ok, true);
   assert.equal(validateDisplayName("가".repeat(31)).ok, false);
-  assert.deepEqual(validateDisplayName("😀".repeat(30)), { ok: true, value: "😀".repeat(30) }, "이모지 30개는 UTF-16 으로 60 이지만 30자다");
-  assert.equal(validateDisplayName("😀".repeat(31)).ok, false);
+  assert.deepEqual(validateDisplayName("가" + "😀".repeat(29)), { ok: true, value: "가" + "😀".repeat(29) }, "이모지는 UTF-16 으로 2칸이지만 1자다(글자와 함께)");
+  assert.equal(validateDisplayName("가" + "😀".repeat(30)).ok, false);
+  assert.equal(validateDisplayName("😀😀").ok, false, "보이는 글자(문자·숫자) 없이 이모지만은 거부");
   assert.deepEqual(validateDisplayName("<b>이름</b>"), { ok: true, value: "<b>이름</b>" });
   assert.deepEqual(validateDisplayName("\u3000이름\u3000"), { ok: true, value: "이름" }, "전각 공백도 앞뒤에서 지운다");
 });
@@ -27,7 +28,11 @@ test("검증: 빈 값·공백만·문자열 아님·줄바꿈·제어 문자·�
   for (const bad of ["", "   ", "\t", null, undefined, 42, ["a"], "가\n나", "가\r나", "가\t나", "가\u0000나", "가\u007f나", "가\u0085나", "가\u2028나", "가\u202e나", "가\u2066나", "가\u200f나"]) {
     assert.equal(validateDisplayName(bad).ok, false, JSON.stringify(bad));
   }
-  assert.equal(validateDisplayName("가\u200d나").ok, true, "이모지 결합 문자(ZWJ)는 허용");
+  assert.equal(validateDisplayName("가\u200d나").ok, false, "폭 없는 결합자(ZWJ)도 서식 문자라 거부");
+  for (const ch of ["\u200b", "\u3164", "\u115f", "\u00ad", "\u{E0041}"]) {
+    assert.equal(validateDisplayName(`엄마${ch}`).ok, false, "그룹 태그와 같은 규칙: 보이지 않는 문자·채움 문자");
+  }
+  assert.deepEqual(validateDisplayName("엄마".normalize("NFD")), { ok: true, value: "엄마" }, "NFC 로 저장");
 });
 
 test("저장 쿼리: 세션 사용자 id 하나로만 범위가 묶이고, id 형식이 아니면 쿼리하지 않는다", async () => {

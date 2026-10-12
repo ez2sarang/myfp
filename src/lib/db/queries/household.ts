@@ -1,6 +1,7 @@
 // 함께 보기(그룹) 저장소 (서버 전용, Db 주입).
 //  - 다른 사용자 데이터를 읽는 곳은 visibleToViewer 하나뿐이다. 모든 조회가 "열람자의 그룹 ↔ 대상 구성원" 조인에서 시작하고,
-//    내놓은 범위(share_fixed·share_balances)·'나만 보기' 제외(private = false)·활성 계정(열람자와 대상 모두)을 SQL 이 강제한다.
+//    내놓은 범위(share_fixed·share_balances)·'나만 보기' 제외(private = false)·보관한 고정지출 제외(archived_at IS NULL, 지난 달 포함)·
+//    활성 계정(열람자와 대상 모두)을 SQL 이 강제한다.
 //    입력은 세션 사용자 id 하나이고, 클라이언트가 보낸 사용자 id·그룹 id 는 받지 않는다.
 //  - 보내는 필드는 이름·분류·금액·주기·납부일·기간·활성뿐이다(메모·기관/카드명·출처·결제수단은 조회하지 않는다).
 //    항목 id·사용자 id 는 결과에 싣지 않고 서버가 만든 불투명 키(m1~m6, m1-3 …)로 바꾼다.
@@ -152,7 +153,7 @@ export async function visibleToViewer(db: Db, viewerId: string): Promise<Househo
             to_char((f.created_at AT TIME ZONE 'Asia/Seoul')::date, 'YYYY-MM-DD') AS created_on
        ${VISIBLE_MEMBERS}
        JOIN myfp.fixed_expenses f ON f.user_id = m.user_id
-      WHERE me.user_id = $1 AND m.share_fixed = true AND f.private = false
+      WHERE me.user_id = $1 AND m.share_fixed = true AND f.private = false AND f.archived_at IS NULL
       ORDER BY m.joined_at, f.created_at, f.id`,
     [viewerId],
   );
@@ -189,7 +190,7 @@ export async function visibleToViewer(db: Db, viewerId: string): Promise<Househo
     const res = await db.query<{ fixed_expense_id: string; month: string; amount: string | null; skipped: boolean }>(
       `SELECT o.fixed_expense_id::text AS fixed_expense_id, o.month, o.amount::text AS amount, o.skipped
          ${VISIBLE_MEMBERS}
-         JOIN myfp.fixed_expenses f ON f.user_id = m.user_id AND f.private = false
+         JOIN myfp.fixed_expenses f ON f.user_id = m.user_id AND f.private = false AND f.archived_at IS NULL
          JOIN myfp.fixed_overrides o ON o.fixed_expense_id = f.id AND o.user_id = m.user_id
         WHERE me.user_id = $1 AND m.share_fixed = true`,
       [viewerId],
@@ -411,12 +412,15 @@ export async function leaveHousehold(db: Db, userId: string, opts: { audit?: boo
   await db.query("SELECT id FROM myfp.households WHERE id = $1 FOR UPDATE", [row.household_id]);
   await db.query("DELETE FROM myfp.household_members WHERE household_id = $1 AND user_id = $2", [row.household_id, userId]);
   if (row.role === "owner") {
-    const rest = await db.query<{ user_id: string; role: "owner" | "member"; joined_at: Date }>(
-      "SELECT user_id::text AS user_id, role, joined_at FROM myfp.household_members WHERE household_id = $1",
+    // 승계 후보는 활성 계정 우선(없으면 가장 먼저 가입한 구성원)
+    const rest = await db.query<{ user_id: string; role: "owner" | "member"; joined_at: Date; status: string }>(
+      `SELECT m.user_id::text AS user_id, m.role, m.joined_at, u.status
+         FROM myfp.household_members m JOIN myfp.users u ON u.id = m.user_id
+        WHERE m.household_id = $1`,
       [row.household_id],
     );
     const successor = pickSuccessor(
-      rest.rows.map((r): MemberRef => ({ userId: r.user_id, role: r.role, joinedAt: new Date(r.joined_at) })),
+      rest.rows.map((r): MemberRef => ({ userId: r.user_id, role: r.role, joinedAt: new Date(r.joined_at), active: r.status === "active" })),
       userId,
     );
     if (successor) {
