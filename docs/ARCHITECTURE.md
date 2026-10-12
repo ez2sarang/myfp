@@ -58,6 +58,11 @@ flowchart LR
 신규 가입은 기본적으로 바로 active(member)다(`auth-core/provision.ts`). 안전장치: env `SIGNUP_MODE=approval`(허용 목록 밖 값도 approval)이면 신규는 pending,
 active 사용자가 `MAX_ACTIVE_USERS`(기본 200) 이상이면 신규는 pending. pending 은 공유 보기만 열 수 있고 `/app` 은 막힌다. 계정 자기 삭제는 `db/queries/account.ts` 의 `deleteAccount`.
 
+## 앱 역할 권한
+
+앱 역할(myfp_app)의 권한은 스키마 기본 권한 위에 `0004_app_role_privileges.sql` 의 테이블별 명시 REVOKE 로 좁힌다(audit_log 는 SELECT·INSERT 만, schema_migrations 는 권한 없음).
+테이블별 REVOKE 라서, 앞으로 audit 성격(추가 전용)의 테이블을 새로 만들면 그 마이그레이션에 같은 REVOKE 를 반드시 넣어야 한다.
+
 ## 공유 열람 대상 (향후 설계 메모)
 
 지금은 `audience = members`(로그인한 active·pending 사용자 누구나)만 쓴다. `db/migrations/0003_share_audience.sql` 이 `share_links.audience`(members·designated)를 추가하지만 아직 운영 DB 에 적용하지 않았다.
