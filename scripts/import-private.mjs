@@ -2,34 +2,29 @@
 // 개인 데이터 적재기: 저장소 밖의 시드(JSON)를 소유자 계정의 고정지출·자산/부채로 넣는다.
 //
 //   node scripts/import-private.mjs <seed.json>            # 기본: dry-run (검증하고 건수만 출력, DB 에 쓰지 않음)
-//   node scripts/import-private.mjs <seed.json> --apply    # 멱등 upsert (키: user_id + external_key)
+//   node scripts/import-private.mjs <seed.json> --apply    # 멱등 upsert (키: user_id + external_key). 같은 키의 기존 행은 시드 값으로 덮어쓴다
+//   node scripts/import-private.mjs <seed.json> --apply --skip-existing   # 같은 키의 기존 행은 건드리지 않고 새 키만 넣는다(화면에서 고친 값 보존)
 //
 // - 소유자: 환경 변수 ADMIN_EMAILS 의 첫 이메일. users 행이 없으면 만든다(status active, role admin, 로그인 수단 미연결).
 //   이후 같은 이메일의 "검증된" Google 계정으로 로그인하면 이 행에 연결된다(카카오는 이메일로 연결되지 않는다).
-// - 연결 문자열은 환경 변수에서만 읽는다: DATABASE_URL, 없으면 MIGRATE_DATABASE_URL.
+// - 연결 문자열은 환경 변수에서만 읽는다: DATABASE_URL, 없으면 MIGRATE_DATABASE_URL. TLS 는 앱 풀과 같은 규칙(tlsOptionFor, DATABASE_CA).
 // - 출력에는 건수만 남긴다. 금액·이름·이메일·연결 정보는 출력하지 않는다.
 import { readFile } from "node:fs/promises";
 import pg from "pg";
+import { tlsOptionFor } from "../src/lib/db/pool.ts";
 import { normalizeSeed } from "../src/lib/finance/import.ts";
 import { LIMITS } from "../src/lib/finance/types.ts";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-function sslFor(url) {
-  try {
-    return LOCAL_HOSTS.has(new URL(url).hostname) ? undefined : { rejectUnauthorized: false };
-  } catch {
-    return undefined;
-  }
-}
 
 function parseArgs(argv) {
-  const opts = { file: null, apply: false };
+  const opts = { file: null, apply: false, skipExisting: false };
   for (const arg of argv) {
     if (arg === "--apply") opts.apply = true;
+    else if (arg === "--skip-existing") opts.skipExisting = true;
     else if (!arg.startsWith("--") && opts.file === null) opts.file = arg;
     else throw new Error(`알 수 없는 인자: ${arg}`);
   }
-  if (!opts.file) throw new Error("사용법: node scripts/import-private.mjs <seed.json> [--apply]");
+  if (!opts.file) throw new Error("사용법: node scripts/import-private.mjs <seed.json> [--apply [--skip-existing]]");
   return opts;
 }
 
@@ -52,17 +47,21 @@ const fixedValues = (v) => [v.name, v.category, v.amount, v.cycle, v.billingDay,
 const BALANCE_COLS = ["kind", "category", "name", "amount", "as_of", "note", "monthly_payment", "interest_rate", "end_date"];
 const balanceValues = (v) => [v.kind, v.category, v.name, v.amount, v.asOf, v.note, v.monthlyPayment, v.interestRate, v.endDate];
 
-async function upsert(client, table, cols, userId, externalKey, values) {
+/** 결과: "inserted" | "updated" | "skipped" (skipExisting 이면 같은 키의 기존 행을 건드리지 않는다) */
+async function upsert(client, table, cols, userId, externalKey, values, skipExisting) {
   const all = ["user_id", "external_key", ...cols];
   const placeholders = all.map((_, i) => `$${i + 1}`).join(", ");
   const updates = cols.map((c) => `${c} = EXCLUDED.${c}`).join(", ");
+  const conflict = skipExisting ? "DO NOTHING" : `DO UPDATE SET ${updates}, updated_at = now()`;
   const res = await client.query(
     `INSERT INTO myfp.${table} (${all.join(", ")}) VALUES (${placeholders})
-     ON CONFLICT (user_id, external_key) WHERE external_key IS NOT NULL DO UPDATE SET ${updates}, updated_at = now()
+     ON CONFLICT (user_id, external_key) WHERE external_key IS NOT NULL ${conflict}
      RETURNING (xmax = 0) AS inserted`,
     [userId, externalKey, ...values],
   );
-  return res.rows[0]?.inserted === true;
+  const row = res.rows[0];
+  if (!row) return "skipped";
+  return row.inserted === true ? "inserted" : "updated";
 }
 
 async function main() {
@@ -85,7 +84,7 @@ async function main() {
 
   const url = process.env.DATABASE_URL || process.env.MIGRATE_DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL 또는 MIGRATE_DATABASE_URL 이 필요합니다.");
-  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 5000, ssl: sslFor(url) });
+  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 5000, ssl: tlsOptionFor(url) });
   await client.connect();
   try {
     await client.query("BEGIN");
@@ -109,18 +108,17 @@ async function main() {
     if (counts.rows[0].f + fixed.length > LIMITS.fixedExpenses || counts.rows[0].b + balances.length > LIMITS.balanceItems) {
       throw new Error("사용자당 상한을 넘습니다. 시드를 줄이거나 기존 항목을 정리하세요.");
     }
-    const tally = { fixedInserted: 0, fixedUpdated: 0, balanceInserted: 0, balanceUpdated: 0 };
+    const tally = { fixed: { inserted: 0, updated: 0, skipped: 0 }, balance: { inserted: 0, updated: 0, skipped: 0 } };
     for (const f of fixed) {
-      if (await upsert(client, "fixed_expenses", FIXED_COLS, owner.id, f.externalKey, fixedValues(f.input))) tally.fixedInserted += 1;
-      else tally.fixedUpdated += 1;
+      tally.fixed[await upsert(client, "fixed_expenses", FIXED_COLS, owner.id, f.externalKey, fixedValues(f.input), opts.skipExisting)] += 1;
     }
     for (const b of balances) {
-      if (await upsert(client, "balance_items", BALANCE_COLS, owner.id, b.externalKey, balanceValues(b.input))) tally.balanceInserted += 1;
-      else tally.balanceUpdated += 1;
+      tally.balance[await upsert(client, "balance_items", BALANCE_COLS, owner.id, b.externalKey, balanceValues(b.input), opts.skipExisting)] += 1;
     }
     await client.query("COMMIT");
     console.log(`적용 완료: 소유자 ${ownerCreated ? "새로 만듦" : "기존 행 사용"}`);
-    console.log(`고정지출 신규 ${tally.fixedInserted}건 · 갱신 ${tally.fixedUpdated}건 / 자산·부채 신규 ${tally.balanceInserted}건 · 갱신 ${tally.balanceUpdated}건`);
+    const line = (t) => `신규 ${t.inserted}건 · 갱신 ${t.updated}건 · 건너뜀 ${t.skipped}건`;
+    console.log(`고정지출 ${line(tally.fixed)} / 자산·부채 ${line(tally.balance)}`);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     throw error;

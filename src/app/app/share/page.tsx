@@ -42,7 +42,8 @@ export default async function SharePage() {
         </CardBody>
       </Card>
 
-      <h2 className="mb-3 mt-8 text-xl">내 링크</h2>
+      <h2 className="mb-1 mt-8 text-xl">내 링크</h2>
+      <p className="mb-3 text-xs text-muted">열람 수에는 메신저·SNS 의 링크 미리보기 봇이 주소를 열어 본 횟수가 섞일 수 있습니다.</p>
       {links.length === 0 ? (
         <EmptyState title="만든 링크가 없습니다" />
       ) : (

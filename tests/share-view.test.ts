@@ -137,3 +137,25 @@ test("차트도 같은 규칙: 금액 숨김이면 비중(%)만, 가운데 합�
   assert.equal(open.summary?.charts.categories.total, SECRET_AMOUNT);
   assert.equal(open.balances?.charts.composition.total, SECRET_AMOUNT + 1);
 });
+
+test("금액 숨김: 자산·부채 목록 순서가 금액과 무관하다 (분류 → 이름 순)", () => {
+  const items: BalanceItem[] = [
+    { id: "a", kind: "asset", category: "deposit", name: "다 예금", amount: 9_000_000, asOf: null, note: null, monthlyPayment: null, interestRate: null, endDate: null },
+    { id: "b", kind: "asset", category: "deposit", name: "가 예금", amount: 1_000, asOf: null, note: null, monthlyPayment: null, interestRate: null, endDate: null },
+    { id: "c", kind: "asset", category: "cash", name: "지갑", amount: 5_000_000, asOf: null, note: null, monthlyPayment: null, interestRate: null, endDate: null },
+    { id: "d", kind: "liability", category: "loan", name: "나 대출", amount: 8_000_000, asOf: null, note: null, monthlyPayment: null, interestRate: null, endDate: null },
+    { id: "e", kind: "liability", category: "loan", name: "가 대출", amount: 2_000, asOf: null, note: null, monthlyPayment: null, interestRate: null, endDate: null },
+  ];
+  const masked = buildShareView(source({ balances: items, masks: { amounts: true, details: true } }), NOW);
+  const expectedAssets = ["현금:지갑", "예금·적금:가 예금", "예금·적금:다 예금"].sort((x, y) => {
+    const [cx, nx] = x.split(":");
+    const [cy, ny] = y.split(":");
+    return cx!.localeCompare(cy!, "ko") || nx!.localeCompare(ny!, "ko");
+  });
+  assert.deepEqual(masked.balances?.assets.map((r) => `${r.category}:${r.name}`), expectedAssets);
+  assert.deepEqual(masked.balances?.liabilities.map((r) => r.name), ["가 대출", "나 대출"]);
+  // 같은 데이터를 금액 순(저장소 순서)으로 넣어도, 순서를 뒤집어 넣어도 결과 순서가 같다
+  const reversed = buildShareView(source({ balances: [...items].reverse(), masks: { amounts: true, details: true } }), NOW);
+  assert.deepEqual(reversed.balances?.assets.map((r) => r.name), masked.balances?.assets.map((r) => r.name));
+  assert.deepEqual(reversed.balances?.liabilities.map((r) => r.name), masked.balances?.liabilities.map((r) => r.name));
+});

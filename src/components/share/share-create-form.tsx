@@ -77,6 +77,9 @@ export function ShareCreateForm({ action, disabled }: { action: (prev: ActionSta
             <input type="checkbox" name="mask_details" defaultChecked className="size-4" /> 메모·기관명 숨기기
           </label>
           <p className="text-xs text-muted">숨긴 값은 서버에서 지운 뒤 보내므로 받는 사람이 볼 방법이 없습니다.</p>
+          <p className="text-xs text-muted">
+            메모·기관명 숨기기는 「메모」와 「기관·카드명」 칸만 가립니다. 항목 이름에 적은 기관명은 그대로 보이니 필요하면 이름을 바꿔 주세요.
+          </p>
         </fieldset>
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
           <SubmitButton variant="primary" size="md">

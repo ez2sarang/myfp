@@ -155,10 +155,17 @@ export function buildShareView(source: ShareSource, now: Date): ShareView {
     };
     const composition = assetDonut(source.balances);
     const compare = assetLiabilityCompare(totals);
+    // 금액을 숨기면 목록 순서(저장소는 금액 큰 순)도 크기 순위를 드러내므로 분류 → 이름 순으로 다시 정렬한다.
+    const ordered = masks.amounts
+      ? [...source.balances].sort(
+          (a, b) =>
+            balanceCategoryLabel(a.kind, a.category).localeCompare(balanceCategoryLabel(b.kind, b.category), "ko") || a.name.localeCompare(b.name, "ko"),
+        )
+      : source.balances;
     view.balances = {
       charts: masks.amounts ? { composition: donutAsPercent(composition), compare: compareAsPercent(compare) } : { composition, compare },
-      assets: source.balances.filter((b) => b.kind === "asset").map(toRow),
-      liabilities: source.balances.filter((b) => b.kind === "liability").map(toRow),
+      assets: ordered.filter((b) => b.kind === "asset").map(toRow),
+      liabilities: ordered.filter((b) => b.kind === "liability").map(toRow),
       assetsTotal: money(totals.assetsTotal),
       liabilitiesTotal: money(totals.liabilitiesTotal),
       netWorth: money(totals.netWorth),

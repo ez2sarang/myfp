@@ -73,10 +73,13 @@ PostgreSQL 스키마 `myfp` 하나만 씁니다. 마이그레이션은 `db/migra
 `npm run migrate` 가 이름 순으로 적용합니다. 앱 역할(`myfp_app`)은 별도로 만들며, 마이그레이션이 필요한 권한만 부여합니다.
 
 개인 데이터 적재(저장소 밖 시드 파일): `node scripts/import-private.mjs <seed.json>` (기본 dry-run, `--apply` 시 멱등 upsert). 출력은 건수만.
+`--apply` 는 같은 키(external_key)의 기존 행을 시드 값으로 덮어씁니다. 화면에서 고친 값을 보존하려면 `--apply --skip-existing` 으로 새 키만 넣습니다.
+
+TLS: 앱·마이그레이션·적재 스크립트가 같은 규칙을 씁니다. 원격 DB 는 TLS 로 접속하고, 운영에서는 `DATABASE_CA` 에 DB 서버 CA(PEM)를 넣어 인증서 검증까지 켜는 것을 권장합니다(없으면 암호화만 하고 서버 신원은 검증하지 않음).
 
 ## 배포
 
-Vercel 프로젝트에 이 저장소를 연결하고 위 환경 변수(마이그레이션 전용 값 제외)를 설정합니다. OAuth 콜백 주소:
+Vercel 프로젝트에 이 저장소를 연결하고 위 환경 변수(마이그레이션 전용 값 제외)를 설정합니다. `vercel.json` 은 설치 명령을 `npm ci --ignore-scripts` 로 고정합니다(lock 파일 그대로, 설치 스크립트 실행 안 함). OAuth 콜백 주소:
 `<AUTH_URL>/api/auth/callback/google`, `<AUTH_URL>/api/auth/callback/kakao`.
 
 구조 설명: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)

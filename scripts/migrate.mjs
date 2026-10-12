@@ -4,6 +4,7 @@
 //   node scripts/migrate.mjs [--dry-run]
 //
 // 연결 문자열은 환경 변수에서만 읽는다 (인자·로그에 남기지 않는다): MIGRATE_DATABASE_URL, 없으면 DATABASE_URL.
+// TLS 는 앱 풀과 같은 규칙(tlsOptionFor): 원격 DB 는 TLS, DATABASE_CA(PEM)가 있으면 인증서까지 검증한다.
 // 마이그레이션은 DDL 권한이 있는 소유자 연결로 실행한다. 앱 연결(myfp_app)과 분리하는 것을 권장한다.
 // 마이그레이션 SQL 은 스키마를 myfp. 로 직접 명시한다. 다른 스키마는 건드리지 않는다.
 // --dry-run: 아무것도 쓰지 않고 적용될 목록만 보여 준다 (연결 정보가 없으면 파일 목록만).
@@ -11,19 +12,12 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { tlsOptionFor } from "../src/lib/db/pool.ts";
 import { appliedMigrations, applyMigration, ensureHistoryTable, ensureSchema } from "../src/lib/db/migrate-core.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCHEMA = "myfp";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-function sslFor(url) {
-  try {
-    return LOCAL_HOSTS.has(new URL(url).hostname) ? undefined : { rejectUnauthorized: false };
-  } catch {
-    return undefined;
-  }
-}
 
 function parseArgs(argv) {
   const opts = { dryRun: false };
@@ -46,7 +40,7 @@ async function main() {
     return;
   }
 
-  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 5000, ssl: sslFor(url) });
+  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 5000, ssl: tlsOptionFor(url) });
   await client.connect();
   try {
     const exists = await client.query("SELECT 1 FROM pg_namespace WHERE nspname = $1", [SCHEMA]);
